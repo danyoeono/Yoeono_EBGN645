@@ -26,8 +26,14 @@ wkbar "--Max prod per machine per week in jellybeans" ;
 
 wkbar = hbar * mbar;
 
+*Variables
+positive variable X(i,j) 'Quantity of beans color j produced on machine i' ;
+
+variable Z 'Total net revenue' ;
+
+
 equation
-eq_objfn "target of optimization"
+eq_objfn "maximize total revenue"
 eq_hourlimit "no more than 40 hours per week"\
 eq_machinelimit "no more than 100 jb's per hour"
 
