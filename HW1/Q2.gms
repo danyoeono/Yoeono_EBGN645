@@ -3,17 +3,28 @@ set j "jellybeans" /yellow,blue,green,orange,purple/ ;
 *jellybean color
 set i "machines" /X1,X2/ ;
 *machine 1 and 2
-v(i,j) "Valid combos of machines of jellybeans"
+set v(i,j) "Valid combos of machines of jellybeans"
 
-alias (i,ii)
+alias (j, jj)
 
 parameter
 r(j) "--Net Revenue ($/bean)"
+/
+yellow 1,
+blue 1.05,
+green 1.07,
+orange 0.95,
+purple 0.9,
+/
 
 v(i,j) = yes ;
 
+scalar
+hbar "--hours-- total hours in a week" /40/ ,
+mbar "--beans-- total amount of beans per hour" /100/ ,
+wkbar "--Max prod per machine per week in jellybeans" ;
 
-
+wkbar = hbar * mbar;
 
 equation
 eq_objfn "target of optimization"
