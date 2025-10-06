@@ -5,7 +5,7 @@ set i "machines" /X1,X2/ ;
 *machine 1 and 2
 set v(i,j) "Valid combos of machines of jellybeans"
 
-alias (j, jj)
+alias (j, jj) ;
 
 parameter
 r(j) "--Net Revenue ($/bean)"
@@ -34,14 +34,16 @@ variable Z 'Total net revenue' ;
 
 equation
 eq_objfn "maximize total revenue"
-eq_hourlimit "no more than 40 hours per week"\
+eq_hourlimit "no more than 40 hours per week"
 eq_machinelimit "no more than 100 jb's per hour"
 
 eq_objfn.. Z =e= sum((i,j)$v(i,j), r(j) * X(i,j)) ;
 
 eq_hourlimit(i).. hbar * h =g= sum(j,X(i,j)) ;
 
-eq_machinelimit(i).. 
+eq_machinelimit(i).. wkbar =g= sum(j$v(i,j), X(i,j)) ;
+
+
 
 model june /all/;
 
