@@ -49,8 +49,18 @@ eq_cap(i).. wkbar =g= sum(j$v(i,j), X(i,j));
 *part b
 model juneb /eq_objfn, eq_cap/;
 
-sw_maxdev =0 ; 
+*part C
+Equations
+    eq_ProdLimit_Upper(j,jj) 'Production of j is at most 1.05x production of jj',
+    eq_ProdLimit_Lower(j,jj) 'Production of j is at least 0.95x production of jj';
+model junec /   / ;
+model juned /   / ;
+
+*sw_maxdev =0 ; 
 solve juneb using lp maximizing Z;
 
-sw_maxdev =1 ;
-solve juneb using lp maximizing Z;
+*sw_maxdev =1 ;
+*solve junec using lp maximizing Z;
+
+*sw_maxdev =2 ;
+*solve juned using lp maximinzing Z;
