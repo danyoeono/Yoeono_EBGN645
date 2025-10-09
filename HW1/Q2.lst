@@ -1,0 +1,889 @@
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 1
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+C o m p i l a t i o n
+
+
+   1  option PROFILE=1
+   2  set j "jellybeans" /yellow,blue,green,orange,purple/ ;
+   3  *jellybean color
+   4  set i "machines" /X1,X2/ ;
+   5  *machine 1 and 2
+   6  set v(i,j) "Valid combos of machines of jellybeans";
+   7   
+   8  alias (j, jj) ;
+   9   
+  10  parameters
+  11  r(j) "--Net Revenue ($/bean)"
+  12  /
+  13  yellow 1,
+  14  blue 1.05,
+  15  green 1.07,
+  16  orange 0.95,
+  17  purple 0.9
+  18  / ;
+  19   
+  20  *for part b-c
+  21  v(i,j) = yes ;
+  22   
+  23  scalar
+  24  hbar "--hours-- total hours in a week" /40/ ,
+  25  mbar "--beans-- total amount of beans per hour" /100/ ,
+  26  wkbar "--Max prod per machine per week in jellybeans" ;
+  27   
+  28  wkbar = hbar * mbar;
+  29   
+  30  *Variables
+  31  positive variable X(i,j) 'Quantity of beans color j produced on machine i' ;
+  32   
+  33  variable Z 'Total net revenue' ;
+  34   
+  35   
+  36  equation
+  37  eq_objfn "maximize total revenue"
+  38  *eq_hourlimit "no more than 40 hours per week"
+  39  *eq_machinelimit "no more than 100 jb's per hour"
+  40  eq_cap(i) "Machine Capacity in a week constraint" ;
+  41   
+  42  eq_objfn.. Z =e= sum((i,j)$v(i,j), r(j) * X(i,j)) ;
+  43   
+  44  eq_cap(i).. wkbar =g= sum(j$v(i,j), X(i,j));
+  45   
+  46  *part b
+  47  model juneb /eq_objfn, eq_cap/;
+  48   
+  49  *part C
+  50  Equations
+  51      eq_prodlimit_upper(j,jj) 'Production of j is at most 1.05x production of jj',
+  52      eq_prodlimit_lower(j,jj) 'Production of j is at least 0.95x production of jj';
+  53   
+  54  * The total production of color j must be <= 1.05 times the production of color jj
+  55  eq_prodlimit_upper(j,jj).. SUM(i, X(i,j)) =l= 1.05 * SUM(i, X(i,jj));
+  56   
+  57  * The total production of color j must be >= 0.95 times the production of color jj
+  58  eq_prodlimit_lower(j,jj).. SUM(i, X(i,j)) =g= 0.95 * SUM(i, X(i,jj));
+  59   
+  60  model junec /eq_objfn, eq_cap, eq_prodlimit_upper, eq_prodlimit_lower/ ;
+  61   
+  62  model juned /eq_objfn, eq_cap, eq_prodlimit_upper, eq_prodlimit_lower/ ;
+  63   
+  64  *sw_maxdev =0 ;
+  65  solve juneb using lp maximizing Z;
+  66   
+  67  execute_unload 'juneb.gdx' ;
+  68   
+  69  *sw_maxdev =1 ;
+  70  solve junec using lp maximizing Z;
+  71   
+  72  execute_unload 'junec.gdx' ;
+  73   
+  74  *sw_maxdev =2 ;
+  75  v(i,j) = yes ;
+  76  v("X1","yellow") = yes ;
+  77  v("X1","blue") = yes ;
+  78  v("X1","green") = yes ;
+  79  v("X1","orange") = no ;
+  80  v("X1","purple") = no ;
+  81  v("X2","yellow") = yes ;
+  82  v("X2","blue") = no ;
+  83  v("X2","green") = no ;
+  84  v("X2","orange") = yes ;
+  85  v("X2","purple") = yes ;
+  86   
+  87  solve juned using lp maximizing Z;
+  88   
+  89  execute_unload 'juned.gdx' ;
+  90   
+  91  *problems: part c is producing decimal aamounts of beans, part d is breaking the wkbar constraint
+
+
+COMPILATION TIME     =        0.000 SECONDS      3 MB  47.5.0 d6b95593 WEX-WEI
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 2
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----     21 Assignment v             0.000     0.000 SECS      4 MB     10
+----     28 Assignment wkbar         0.000     0.000 SECS      4 MB      1
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 3
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Analysis      SOLVE juneb Using LP From line 65
+
+
+----     65 Solve Init juneb         0.000     0.000 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 4
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Equation Listing    SOLVE juneb Using LP From line 65
+
+
+---- eq_objfn  =E=  maximize total revenue
+
+eq_objfn..  - X(X1,yellow) - 1.05*X(X1,blue) - 1.07*X(X1,green) - 0.95*X(X1,orange) - 0.9*X(X1,purple) - X(X2,yellow) - 1.05*X(X2,blue) - 1.07*X(X2,green) - 0.95*X(X2,orange) - 0.9*X(X2,purple) + Z =E= 0 ; (LHS = 0)
+     
+----     42 Equation   eq_objfn      0.000     0.000 SECS      4 MB      1
+
+---- eq_cap  =G=  Machine Capacity in a week constraint
+
+eq_cap(X1)..  - X(X1,yellow) - X(X1,blue) - X(X1,green) - X(X1,orange) - X(X1,purple) =G= -4000 ; (LHS = 0)
+     
+eq_cap(X2)..  - X(X2,yellow) - X(X2,blue) - X(X2,green) - X(X2,orange) - X(X2,purple) =G= -4000 ; (LHS = 0)
+     
+----     44 Equation   eq_cap        0.000     0.000 SECS      4 MB      2
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 5
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Column Listing      SOLVE juneb Using LP From line 65
+
+
+---- X  Quantity of beans color j produced on machine i
+
+X(X1,yellow)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -1       eq_objfn
+       -1       eq_cap(X1)
+
+X(X1,blue)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -1.05    eq_objfn
+       -1       eq_cap(X1)
+
+X(X1,green)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -1.07    eq_objfn
+       -1       eq_cap(X1)
+
+REMAINING 7 ENTRIES SKIPPED
+
+---- Z  Total net revenue
+
+Z
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       eq_objfn
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 6
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Range Statistics    SOLVE juneb Using LP From line 65
+
+
+RANGE STATISTICS (ABSOLUTE NON-ZERO FINITE VALUES)
+
+RHS       [min, max] : [ 4.000E+03, 4.000E+03] - Zero values observed as well
+Bound     [min, max] : [        NA,        NA] - Zero values observed as well
+Matrix    [min, max] : [ 9.000E-01, 1.070E+00]
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 7
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Statistics    SOLVE juneb Using LP From line 65
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS           2     SINGLE EQUATIONS            3
+BLOCKS OF VARIABLES           2     SINGLE VARIABLES           11
+NON ZERO ELEMENTS            21
+
+
+----     65 Solve Fini juneb         0.000     0.000 SECS      4 MB     21
+GENERATION TIME      =        0.000 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+----     65 Solver     juneb         0.049     0.047 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 8
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Solution Report     SOLVE juneb Using LP From line 65
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   juneb               OBJECTIVE  Z
+     TYPE    LP                  DIRECTION  MAXIMIZE
+     SOLVER  CPLEX               FROM LINE  65
+
+**** SOLVER STATUS     1 Normal Completion
+**** MODEL STATUS      1 Optimal
+**** OBJECTIVE VALUE             8560.0000
+
+ RESOURCE USAGE, LIMIT          0.000 10000000000.000
+ ITERATION COUNT, LIMIT         0    2147483647
+--- GAMS/CPLEX licensed for continuous and discrete problems.
+--- GMO setup time: 0.00s
+--- GMO memory 0.50 Mb (peak 0.50 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 22.1.1.0 link memory 0.00 Mb (peak 0.00 Mb)
+--- Starting Cplex
+
+
+--- LP status (1): optimal.
+--- Cplex Time: 0.00sec (det. 0.00 ticks)
+
+
+Optimal solution found
+Objective:         8560.000000
+
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- EQU eq_objfn            .              .              .             1.0000      
+
+  eq_objfn  maximize total revenue
+
+---- EQU eq_cap  Machine Capacity in a week constraint
+
+          LOWER          LEVEL          UPPER         MARGINAL
+
+X1     -4000.0000     -4000.0000        +INF           -1.0700      
+X2     -4000.0000     -4000.0000        +INF           -1.0700      
+
+---- VAR X  Quantity of beans color j produced on machine i
+
+                 LOWER          LEVEL          UPPER         MARGINAL
+
+X1.yellow          .              .            +INF           -0.0700      
+X1.blue            .              .            +INF           -0.0200      
+X1.green           .          4000.0000        +INF             .          
+X1.orange          .              .            +INF           -0.1200      
+X1.purple          .              .            +INF           -0.1700      
+X2.yellow          .              .            +INF           -0.0700      
+X2.blue            .              .            +INF           -0.0200      
+X2.green           .          4000.0000        +INF             .          
+X2.orange          .              .            +INF           -0.1200      
+X2.purple          .              .            +INF           -0.1700      
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR Z                 -INF         8560.0000        +INF             .          
+
+  Z  Total net revenue
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+----     65 Solve Read juneb         0.000     0.047 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 9
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----     67 Unload                   0.000     0.047 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 10
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Analysis      SOLVE junec Using LP From line 70
+
+
+----     70 Solve Init junec         0.000     0.047 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 11
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Equation Listing    SOLVE junec Using LP From line 70
+
+
+---- eq_objfn  =E=  maximize total revenue
+
+eq_objfn..  - X(X1,yellow) - 1.05*X(X1,blue) - 1.07*X(X1,green) - 0.95*X(X1,orange) - 0.9*X(X1,purple) - X(X2,yellow) - 1.05*X(X2,blue) - 1.07*X(X2,green) - 0.95*X(X2,orange) - 0.9*X(X2,purple) + Z =E= 0 ; (LHS = 0)
+     
+----     42 Equation   eq_objfn      0.000     0.047 SECS      4 MB      1
+
+---- eq_cap  =G=  Machine Capacity in a week constraint
+
+eq_cap(X1)..  - X(X1,yellow) - X(X1,blue) - X(X1,green) - X(X1,orange) - X(X1,purple) =G= -4000 ; (LHS = -4000)
+     
+eq_cap(X2)..  - X(X2,yellow) - X(X2,blue) - X(X2,green) - X(X2,orange) - X(X2,purple) =G= -4000 ; (LHS = -4000)
+     
+----     44 Equation   eq_cap        0.000     0.047 SECS      4 MB      2
+
+---- eq_prodlimit_upper  =L=  Production of j is at most 1.05x production of jj
+
+eq_prodlimit_upper(yellow,yellow)..  - 0.05*X(X1,yellow) - 0.05*X(X2,yellow) =L= 0 ; (LHS = 0)
+     
+eq_prodlimit_upper(yellow,blue)..  X(X1,yellow) - 1.05*X(X1,blue) + X(X2,yellow) - 1.05*X(X2,blue) =L= 0 ; (LHS = 0)
+     
+eq_prodlimit_upper(yellow,green)..  X(X1,yellow) - 1.05*X(X1,green) + X(X2,yellow) - 1.05*X(X2,green) =L= 0 ; (LHS = -8400)
+     
+REMAINING 22 ENTRIES SKIPPED
+
+----     55 Equation   eq_prodlimit_upper    0.000     0.047 SECS      4 MB     25
+
+---- eq_prodlimit_lower  =G=  Production of j is at least 0.95x production of jj
+
+eq_prodlimit_lower(yellow,yellow)..  0.05*X(X1,yellow) + 0.05*X(X2,yellow) =G= 0 ; (LHS = 0)
+     
+eq_prodlimit_lower(yellow,blue)..  X(X1,yellow) - 0.95*X(X1,blue) + X(X2,yellow) - 0.95*X(X2,blue) =G= 0 ; (LHS = 0)
+     
+eq_prodlimit_lower(yellow,green)..  X(X1,yellow) - 0.95*X(X1,green) + X(X2,yellow) - 0.95*X(X2,green) =G= 0 ; (LHS = -7600, INFES = 7600 ****)
+     
+REMAINING 22 ENTRIES SKIPPED
+
+----     58 Equation   eq_prodlimit_lower    0.000     0.047 SECS      4 MB     25
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 12
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Column Listing      SOLVE junec Using LP From line 70
+
+
+---- X  Quantity of beans color j produced on machine i
+
+X(X1,yellow)
+                (.LO, .L, .UP, .M = 0, 0, +INF, -0.0700000000000001)
+       -1       eq_objfn
+       -1       eq_cap(X1)
+       -0.05    eq_prodlimit_upper(yellow,yellow)
+        1       eq_prodlimit_upper(yellow,blue)
+        1       eq_prodlimit_upper(yellow,green)
+        1       eq_prodlimit_upper(yellow,orange)
+        1       eq_prodlimit_upper(yellow,purple)
+       -1.05    eq_prodlimit_upper(blue,yellow)
+       -1.05    eq_prodlimit_upper(green,yellow)
+       -1.05    eq_prodlimit_upper(orange,yellow)
+       -1.05    eq_prodlimit_upper(purple,yellow)
+        0.05    eq_prodlimit_lower(yellow,yellow)
+        1       eq_prodlimit_lower(yellow,blue)
+        1       eq_prodlimit_lower(yellow,green)
+        1       eq_prodlimit_lower(yellow,orange)
+        1       eq_prodlimit_lower(yellow,purple)
+       -0.95    eq_prodlimit_lower(blue,yellow)
+       -0.95    eq_prodlimit_lower(green,yellow)
+       -0.95    eq_prodlimit_lower(orange,yellow)
+       -0.95    eq_prodlimit_lower(purple,yellow)
+
+X(X1,blue)
+                (.LO, .L, .UP, .M = 0, 0, +INF, -0.02)
+       -1.05    eq_objfn
+       -1       eq_cap(X1)
+       -1.05    eq_prodlimit_upper(yellow,blue)
+        1       eq_prodlimit_upper(blue,yellow)
+       -0.05    eq_prodlimit_upper(blue,blue)
+        1       eq_prodlimit_upper(blue,green)
+        1       eq_prodlimit_upper(blue,orange)
+        1       eq_prodlimit_upper(blue,purple)
+       -1.05    eq_prodlimit_upper(green,blue)
+       -1.05    eq_prodlimit_upper(orange,blue)
+       -1.05    eq_prodlimit_upper(purple,blue)
+       -0.95    eq_prodlimit_lower(yellow,blue)
+        1       eq_prodlimit_lower(blue,yellow)
+        0.05    eq_prodlimit_lower(blue,blue)
+        1       eq_prodlimit_lower(blue,green)
+        1       eq_prodlimit_lower(blue,orange)
+        1       eq_prodlimit_lower(blue,purple)
+       -0.95    eq_prodlimit_lower(green,blue)
+       -0.95    eq_prodlimit_lower(orange,blue)
+       -0.95    eq_prodlimit_lower(purple,blue)
+
+X(X1,green)
+                (.LO, .L, .UP, .M = 0, 4000, +INF, 0)
+       -1.07    eq_objfn
+       -1       eq_cap(X1)
+       -1.05    eq_prodlimit_upper(yellow,green)
+       -1.05    eq_prodlimit_upper(blue,green)
+        1       eq_prodlimit_upper(green,yellow)
+        1       eq_prodlimit_upper(green,blue)
+       -0.05    eq_prodlimit_upper(green,green)
+        1       eq_prodlimit_upper(green,orange)
+        1       eq_prodlimit_upper(green,purple)
+       -1.05    eq_prodlimit_upper(orange,green)
+       -1.05    eq_prodlimit_upper(purple,green)
+       -0.95    eq_prodlimit_lower(yellow,green)
+       -0.95    eq_prodlimit_lower(blue,green)
+        1       eq_prodlimit_lower(green,yellow)
+        1       eq_prodlimit_lower(green,blue)
+        0.05    eq_prodlimit_lower(green,green)
+        1       eq_prodlimit_lower(green,orange)
+        1       eq_prodlimit_lower(green,purple)
+       -0.95    eq_prodlimit_lower(orange,green)
+       -0.95    eq_prodlimit_lower(purple,green)
+
+REMAINING 7 ENTRIES SKIPPED
+
+---- Z  Total net revenue
+
+Z
+                (.LO, .L, .UP, .M = -INF, 8560, +INF, 0)
+        1       eq_objfn
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 13
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Range Statistics    SOLVE junec Using LP From line 70
+
+
+RANGE STATISTICS (ABSOLUTE NON-ZERO FINITE VALUES)
+
+RHS       [min, max] : [ 4.000E+03, 4.000E+03] - Zero values observed as well
+Bound     [min, max] : [        NA,        NA] - Zero values observed as well
+Matrix    [min, max] : [ 5.000E-02, 1.070E+00]
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 14
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Statistics    SOLVE junec Using LP From line 70
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS           4     SINGLE EQUATIONS           53
+BLOCKS OF VARIABLES           2     SINGLE VARIABLES           11
+NON ZERO ELEMENTS           201
+
+
+----     70 Solve Fini junec         0.016     0.063 SECS      4 MB    201
+GENERATION TIME      =        0.016 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+----     70 Solver     junec         0.042     0.094 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 15
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Solution Report     SOLVE junec Using LP From line 70
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   junec               OBJECTIVE  Z
+     TYPE    LP                  DIRECTION  MAXIMIZE
+     SOLVER  CPLEX               FROM LINE  70
+
+**** SOLVER STATUS     1 Normal Completion
+**** MODEL STATUS      1 Optimal
+**** OBJECTIVE VALUE             7962.7184
+
+ RESOURCE USAGE, LIMIT          0.000 10000000000.000
+ ITERATION COUNT, LIMIT         8    2147483647
+--- GAMS/CPLEX licensed for continuous and discrete problems.
+--- GMO setup time: 0.00s
+--- GMO memory 0.50 Mb (peak 0.50 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 22.1.1.0 link memory 0.00 Mb (peak 0.01 Mb)
+--- Starting Cplex
+
+
+--- LP status (1): optimal.
+--- Cplex Time: 0.00sec (det. 0.20 ticks)
+
+
+Optimal solution found
+Objective:         7962.718447
+
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- EQU eq_objfn            .              .              .             1.0000      
+
+  eq_objfn  maximize total revenue
+
+---- EQU eq_cap  Machine Capacity in a week constraint
+
+          LOWER          LEVEL          UPPER         MARGINAL
+
+X1     -4000.0000     -4000.0000        +INF           -0.9953      
+X2     -4000.0000     -4000.0000        +INF           -0.9953      
+
+---- EQU eq_prodlimit_upper  Production of j is at most 1.05x production of jj
+
+                     LOWER          LEVEL          UPPER         MARGINAL
+
+yellow.yellow        -INF          -81.5534          .              .          
+yellow.blue          -INF          -81.5534          .              .          
+yellow.green         -INF          -81.5534          .              .          
+yellow.orange        -INF             .              .             0.0047      
+yellow.purple        -INF             .              .              .          
+blue  .yellow        -INF          -81.5534          .              .          
+blue  .blue          -INF          -81.5534          .              .          
+blue  .green         -INF          -81.5534          .              .          
+blue  .orange        -INF             .              .              .          
+blue  .purple        -INF             .              .             0.0547      
+green .yellow        -INF          -81.5534          .              .          
+green .blue          -INF          -81.5534          .              .          
+green .green         -INF          -81.5534          .              .          
+green .orange        -INF             .              .             0.0385      
+green .purple        -INF             .              .             0.0361      
+orange.yellow        -INF         -159.2233          .              .          
+orange.blue          -INF         -159.2233          .              .          
+orange.green         -INF         -159.2233          .              .          
+orange.orange        -INF          -77.6699          .              .          
+orange.purple        -INF          -77.6699          .              .          
+purple.yellow        -INF         -159.2233          .              .          
+purple.blue          -INF         -159.2233          .              .          
+purple.green         -INF         -159.2233          .              .          
+purple.orange        -INF          -77.6699          .              .          
+purple.purple        -INF          -77.6699          .              .          
+
+---- EQU eq_prodlimit_lower  Production of j is at least 0.95x production of jj
+
+                     LOWER          LEVEL          UPPER         MARGINAL
+
+yellow.yellow          .            81.5534        +INF             .          
+yellow.blue            .            81.5534        +INF             .          
+yellow.green           .            81.5534        +INF             .          
+yellow.orange          .           155.3398        +INF             .          
+yellow.purple          .           155.3398        +INF             .          
+blue  .yellow          .            81.5534        +INF             .          
+blue  .blue            .            81.5534        +INF             .          
+blue  .green           .            81.5534        +INF             .          
+blue  .orange          .           155.3398        +INF             .          
+blue  .purple          .           155.3398        +INF             .          
+green .yellow          .            81.5534        +INF             .          
+green .blue            .            81.5534        +INF             .          
+green .green           .            81.5534        +INF             .          
+green .orange          .           155.3398        +INF             .          
+green .purple          .           155.3398        +INF             .          
+orange.yellow          .             3.8835        +INF             .          
+orange.blue            .             3.8835        +INF             .          
+orange.green           .             3.8835        +INF             .          
+orange.orange          .            77.6699        +INF             .          
+orange.purple          .            77.6699        +INF             .          
+purple.yellow          .             3.8835        +INF             .          
+purple.blue            .             3.8835        +INF             .          
+purple.green           .             3.8835        +INF             .          
+purple.orange          .            77.6699        +INF             .          
+purple.purple          .            77.6699        +INF             .          
+
+---- VAR X  Quantity of beans color j produced on machine i
+
+                 LOWER          LEVEL          UPPER         MARGINAL
+
+X1.yellow          .              .            +INF      1.110223E-16      
+X1.blue            .          1631.0680        +INF             .          
+X1.green           .           815.5340        +INF             .          
+X1.orange          .          1553.3981        +INF             .          
+X1.purple          .              .            +INF      2.844947E-16      
+X2.yellow          .          1631.0680        +INF             .          
+X2.blue            .              .            +INF      -1.11022E-16      
+X2.green           .           815.5340        +INF             .          
+X2.orange          .              .            +INF      -9.71445E-17      
+X2.purple          .          1553.3981        +INF             .          
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR Z                 -INF         7962.7184        +INF             .          
+
+  Z  Total net revenue
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+----     70 Solve Read junec         0.000     0.094 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 16
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----     72 Unload                   0.000     0.094 SECS      4 MB 
+----     75 Assignment v             0.000     0.094 SECS      4 MB     10
+----     76 Assignment v             0.000     0.094 SECS      4 MB     10
+----     77 Assignment v             0.000     0.094 SECS      4 MB     10
+----     78 Assignment v             0.000     0.094 SECS      4 MB     10
+----     79 Assignment v             0.000     0.094 SECS      4 MB      9
+----     80 Assignment v             0.000     0.094 SECS      4 MB      8
+----     81 Assignment v             0.000     0.094 SECS      4 MB      8
+----     82 Assignment v             0.000     0.094 SECS      4 MB      7
+----     83 Assignment v             0.000     0.094 SECS      4 MB      6
+----     84 Assignment v             0.000     0.094 SECS      4 MB      6
+----     85 Assignment v             0.000     0.094 SECS      4 MB      6
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 17
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Analysis      SOLVE juned Using LP From line 87
+
+
+----     87 Solve Init juned         0.000     0.094 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 18
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Equation Listing    SOLVE juned Using LP From line 87
+
+
+---- eq_objfn  =E=  maximize total revenue
+
+eq_objfn..  - X(X1,yellow) - 1.05*X(X1,blue) - 1.07*X(X1,green) - X(X2,yellow) - 0.95*X(X2,orange) - 0.9*X(X2,purple) + Z =E= 0 ; (LHS = 2348.34951456311, INFES = 2348.34951456311 ****)
+     
+----     42 Equation   eq_objfn      0.000     0.094 SECS      4 MB      1
+
+---- eq_cap  =G=  Machine Capacity in a week constraint
+
+eq_cap(X1)..  - X(X1,yellow) - X(X1,blue) - X(X1,green) =G= -4000 ; (LHS = -2446.60194174757)
+     
+eq_cap(X2)..  - X(X2,yellow) - X(X2,orange) - X(X2,purple) =G= -4000 ; (LHS = -3184.46601941748)
+     
+----     44 Equation   eq_cap        0.000     0.094 SECS      4 MB      2
+
+---- eq_prodlimit_upper  =L=  Production of j is at most 1.05x production of jj
+
+eq_prodlimit_upper(yellow,yellow)..  - 0.05*X(X1,yellow) - 0.05*X(X2,yellow) =L= 0 ; (LHS = -81.5533980582525)
+     
+eq_prodlimit_upper(yellow,blue)..  X(X1,yellow) - 1.05*X(X1,blue) + X(X2,yellow) - 1.05*X(X2,blue) =L= 0 ; (LHS = -81.5533980582525)
+     
+eq_prodlimit_upper(yellow,green)..  X(X1,yellow) - 1.05*X(X1,green) + X(X2,yellow) - 1.05*X(X2,green) =L= 0 ; (LHS = -81.5533980582525)
+     
+REMAINING 22 ENTRIES SKIPPED
+
+----     55 Equation   eq_prodlimit_upper    0.000     0.094 SECS      4 MB     25
+
+---- eq_prodlimit_lower  =G=  Production of j is at least 0.95x production of jj
+
+eq_prodlimit_lower(yellow,yellow)..  0.05*X(X1,yellow) + 0.05*X(X2,yellow) =G= 0 ; (LHS = 81.5533980582525)
+     
+eq_prodlimit_lower(yellow,blue)..  X(X1,yellow) - 0.95*X(X1,blue) + X(X2,yellow) - 0.95*X(X2,blue) =G= 0 ; (LHS = 81.5533980582525)
+     
+eq_prodlimit_lower(yellow,green)..  X(X1,yellow) - 0.95*X(X1,green) + X(X2,yellow) - 0.95*X(X2,green) =G= 0 ; (LHS = 81.5533980582525)
+     
+REMAINING 22 ENTRIES SKIPPED
+
+----     58 Equation   eq_prodlimit_lower    0.000     0.094 SECS      4 MB     25
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 19
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Column Listing      SOLVE juned Using LP From line 87
+
+
+---- X  Quantity of beans color j produced on machine i
+
+X(X1,yellow)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 1.11022302462516E-16)
+       -1       eq_objfn
+       -1       eq_cap(X1)
+       -0.05    eq_prodlimit_upper(yellow,yellow)
+        1       eq_prodlimit_upper(yellow,blue)
+        1       eq_prodlimit_upper(yellow,green)
+        1       eq_prodlimit_upper(yellow,orange)
+        1       eq_prodlimit_upper(yellow,purple)
+       -1.05    eq_prodlimit_upper(blue,yellow)
+       -1.05    eq_prodlimit_upper(green,yellow)
+       -1.05    eq_prodlimit_upper(orange,yellow)
+       -1.05    eq_prodlimit_upper(purple,yellow)
+        0.05    eq_prodlimit_lower(yellow,yellow)
+        1       eq_prodlimit_lower(yellow,blue)
+        1       eq_prodlimit_lower(yellow,green)
+        1       eq_prodlimit_lower(yellow,orange)
+        1       eq_prodlimit_lower(yellow,purple)
+       -0.95    eq_prodlimit_lower(blue,yellow)
+       -0.95    eq_prodlimit_lower(green,yellow)
+       -0.95    eq_prodlimit_lower(orange,yellow)
+       -0.95    eq_prodlimit_lower(purple,yellow)
+
+X(X1,blue)
+                (.LO, .L, .UP, .M = 0, 1631.06796116505, +INF, 0)
+       -1.05    eq_objfn
+       -1       eq_cap(X1)
+       -1.05    eq_prodlimit_upper(yellow,blue)
+        1       eq_prodlimit_upper(blue,yellow)
+       -0.05    eq_prodlimit_upper(blue,blue)
+        1       eq_prodlimit_upper(blue,green)
+        1       eq_prodlimit_upper(blue,orange)
+        1       eq_prodlimit_upper(blue,purple)
+       -1.05    eq_prodlimit_upper(green,blue)
+       -1.05    eq_prodlimit_upper(orange,blue)
+       -1.05    eq_prodlimit_upper(purple,blue)
+       -0.95    eq_prodlimit_lower(yellow,blue)
+        1       eq_prodlimit_lower(blue,yellow)
+        0.05    eq_prodlimit_lower(blue,blue)
+        1       eq_prodlimit_lower(blue,green)
+        1       eq_prodlimit_lower(blue,orange)
+        1       eq_prodlimit_lower(blue,purple)
+       -0.95    eq_prodlimit_lower(green,blue)
+       -0.95    eq_prodlimit_lower(orange,blue)
+       -0.95    eq_prodlimit_lower(purple,blue)
+
+X(X1,green)
+                (.LO, .L, .UP, .M = 0, 815.533980582524, +INF, 0)
+       -1.07    eq_objfn
+       -1       eq_cap(X1)
+       -1.05    eq_prodlimit_upper(yellow,green)
+       -1.05    eq_prodlimit_upper(blue,green)
+        1       eq_prodlimit_upper(green,yellow)
+        1       eq_prodlimit_upper(green,blue)
+       -0.05    eq_prodlimit_upper(green,green)
+        1       eq_prodlimit_upper(green,orange)
+        1       eq_prodlimit_upper(green,purple)
+       -1.05    eq_prodlimit_upper(orange,green)
+       -1.05    eq_prodlimit_upper(purple,green)
+       -0.95    eq_prodlimit_lower(yellow,green)
+       -0.95    eq_prodlimit_lower(blue,green)
+        1       eq_prodlimit_lower(green,yellow)
+        1       eq_prodlimit_lower(green,blue)
+        0.05    eq_prodlimit_lower(green,green)
+        1       eq_prodlimit_lower(green,orange)
+        1       eq_prodlimit_lower(green,purple)
+       -0.95    eq_prodlimit_lower(orange,green)
+       -0.95    eq_prodlimit_lower(purple,green)
+
+REMAINING 7 ENTRIES SKIPPED
+
+---- Z  Total net revenue
+
+Z
+                (.LO, .L, .UP, .M = -INF, 7962.71844660194, +INF, 0)
+        1       eq_objfn
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 20
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Range Statistics    SOLVE juned Using LP From line 87
+
+
+RANGE STATISTICS (ABSOLUTE NON-ZERO FINITE VALUES)
+
+RHS       [min, max] : [ 4.000E+03, 4.000E+03] - Zero values observed as well
+Bound     [min, max] : [        NA,        NA] - Zero values observed as well
+Matrix    [min, max] : [ 5.000E-02, 1.070E+00]
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 21
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Statistics    SOLVE juned Using LP From line 87
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS           4     SINGLE EQUATIONS           53
+BLOCKS OF VARIABLES           2     SINGLE VARIABLES           11
+NON ZERO ELEMENTS           193
+
+
+----     87 Solve Fini juned         0.016     0.110 SECS      4 MB    193
+GENERATION TIME      =        0.016 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+----     87 Solver     juned         0.056     0.157 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 22
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Solution Report     SOLVE juned Using LP From line 87
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   juned               OBJECTIVE  Z
+     TYPE    LP                  DIRECTION  MAXIMIZE
+     SOLVER  CPLEX               FROM LINE  87
+
+**** SOLVER STATUS     1 Normal Completion
+**** MODEL STATUS      1 Optimal
+**** OBJECTIVE VALUE             8280.0000
+
+ RESOURCE USAGE, LIMIT          0.000 10000000000.000
+ ITERATION COUNT, LIMIT         5    2147483647
+--- GAMS/CPLEX licensed for continuous and discrete problems.
+--- GMO setup time: 0.00s
+--- GMO memory 0.50 Mb (peak 0.50 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 22.1.1.0 link memory 0.00 Mb (peak 0.01 Mb)
+--- Starting Cplex
+
+
+--- LP status (1): optimal.
+--- Cplex Time: 0.00sec (det. 0.11 ticks)
+
+
+Optimal solution found
+Objective:         8280.000000
+
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- EQU eq_objfn            .              .              .             1.0000      
+
+  eq_objfn  maximize total revenue
+
+---- EQU eq_cap  Machine Capacity in a week constraint
+
+          LOWER          LEVEL          UPPER         MARGINAL
+
+X1     -4000.0000     -4000.0000        +INF           -1.0700      
+X2     -4000.0000     -4000.0000        +INF           -1.0000      
+
+---- EQU eq_prodlimit_upper  Production of j is at most 1.05x production of jj
+
+                     LOWER          LEVEL          UPPER         MARGINAL
+
+yellow.yellow        -INF         -200.0000          .              .          
+yellow.blue          -INF             .              .             EPS         
+yellow.green         -INF         -200.0000          .              .          
+yellow.orange        -INF             .              .             EPS         
+yellow.purple        -INF             .              .             EPS         
+blue  .yellow        -INF         -390.4762          .              .          
+blue  .blue          -INF         -190.4762          .              .          
+blue  .green         -INF         -390.4762          .              .          
+blue  .orange        -INF         -190.4762          .              .          
+blue  .purple        -INF         -190.4762          .              .          
+green .yellow        -INF         -200.0000          .              .          
+green .blue          -INF             .              .              .          
+green .green         -INF         -200.0000          .              .          
+green .orange        -INF             .              .              .          
+green .purple        -INF             .              .              .          
+orange.yellow        -INF         -390.4762          .              .          
+orange.blue          -INF         -190.4762          .              .          
+orange.green         -INF         -390.4762          .              .          
+orange.orange        -INF         -190.4762          .              .          
+orange.purple        -INF         -190.4762          .              .          
+purple.yellow        -INF         -390.4762          .              .          
+purple.blue          -INF         -190.4762          .              .          
+purple.green         -INF         -390.4762          .              .          
+purple.orange        -INF         -190.4762          .              .          
+purple.purple        -INF         -190.4762          .              .          
+
+---- EQU eq_prodlimit_lower  Production of j is at least 0.95x production of jj
+
+                     LOWER          LEVEL          UPPER         MARGINAL
+
+yellow.yellow          .           200.0000        +INF             .          
+yellow.blue            .           380.9524        +INF             .          
+yellow.green           .           200.0000        +INF             .          
+yellow.orange          .           380.9524        +INF             .          
+yellow.purple          .           380.9524        +INF             .          
+blue  .yellow          .             9.5238        +INF             .          
+blue  .blue            .           190.4762        +INF             .          
+blue  .green           .             9.5238        +INF             .          
+blue  .orange          .           190.4762        +INF             .          
+blue  .purple          .           190.4762        +INF             .          
+green .yellow          .           200.0000        +INF             .          
+green .blue            .           380.9524        +INF             .          
+green .green           .           200.0000        +INF             .          
+green .orange          .           380.9524        +INF             .          
+green .purple          .           380.9524        +INF             .          
+orange.yellow          .             9.5238        +INF             .          
+orange.blue            .           190.4762        +INF             .          
+orange.green           .             9.5238        +INF             .          
+orange.orange          .           190.4762        +INF             .          
+orange.purple          .           190.4762        +INF             .          
+purple.yellow          .             9.5238        +INF             .          
+purple.blue            .           190.4762        +INF             .          
+purple.green           .             9.5238        +INF             .          
+purple.orange          .           190.4762        +INF             .          
+purple.purple          .           190.4762        +INF             .          
+
+---- VAR X  Quantity of beans color j produced on machine i
+
+                 LOWER          LEVEL          UPPER         MARGINAL
+
+X1.yellow          .              .            +INF           -0.0700      
+X1.blue            .              .            +INF           -0.0200      
+X1.green           .          4000.0000        +INF             .          
+X1.orange          .          3809.5238        +INF             .          
+X1.purple          .          3809.5238        +INF             .          
+X2.yellow          .          4000.0000        +INF             .          
+X2.blue            .          3809.5238        +INF             .          
+X2.green           .              .            +INF            EPS         
+X2.orange          .              .            +INF           -0.0500      
+X2.purple          .              .            +INF           -0.1000      
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR Z                 -INF         8280.0000        +INF             .          
+
+  Z  Total net revenue
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+----     87 Solve Read juned         0.000     0.157 SECS      4 MB 
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/08/25 21:43:53 Page 23
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----     89 Unload                   0.000     0.157 SECS      4 MB 
+
+
+EXECUTION TIME       =        0.157 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+
+
+USER: Computational Economics EBGN 645               G250827|0002AO-GEN
+      Colorado School of Mines, Operations Research Department  DCE4628
+      License for teaching and research at degree granting institutions
+
+
+**** FILE SUMMARY
+
+Input      C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\Yoeono_EBGN645\Yoeono_EBGN645\HW1\Q2.gms
+Output     C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\Yoeono_EBGN645\Yoeono_EBGN645\HW1\Q2.lst
+----     89 GAMS Fini                0.000     0.000 SECS      4 MB 
+ 
+---- Profile Summary (39 records processed)
+     0.056   0.004GB        87 Solver     juned
+     0.049   0.004GB        65 Solver     juneb
+     0.042   0.004GB        70 Solver     junec
+     0.016   0.004GB        70 Solve Fini junec (201)
+     0.016   0.004GB        87 Solve Fini juned (193)
