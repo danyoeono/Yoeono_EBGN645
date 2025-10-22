@@ -1,0 +1,483 @@
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/22/25 10:36:28 Page 1
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+C o m p i l a t i o n
+
+
+   1  *Simple Data Center Location Optimization
+   2   
+   3  Sets
+   4      i   'Potential data center locations'   / SiteA, SiteB, SiteC, SiteD /
+   5      j   'Customer demand zones'             / City1, City2 /
+   6      k   'Data center sizes'                 / Small, Medium, Large /;
+   7   
+   8   
+   9  Parameters
+  10      capitalCost(i, k) 'Capital cost to build DC (in millions)' /
+  11          SiteA.Small   100, SiteA.Medium  200, SiteA.Large  350
+  12          SiteB.Small   100, SiteB.Medium  200, SiteB.Large  350
+  13          SiteC.Small   120, SiteC.Medium  220, SiteC.Large  380
+  14          SiteD.Small   120, SiteD.Medium  220, SiteD.Large  380 /
+  15   
+  16      gridCapacity(i) 'Available grid power (MW)' /
+  17          SiteA 50
+  18          SiteB 100
+  19          SiteC 150
+  20          SiteD 80 /
+  21   
+  22      powerDemand(k) 'Power demand per DC size (MW)' /
+  23          Small  20
+  24          Medium 45
+  25          Large  80 /
+  26   
+  27      waterAvailability(i) 'Available water (megaliters/yr)' /
+  28          SiteA 150
+  29          SiteB 300
+  30          SiteC 500
+  31          SiteD 200 /
+  32   
+  33      waterDemand(k) 'Water demand per DC size (megaliters/yr)' /
+  34          Small  50
+  35          Medium 120
+  36          Large  250 /
+  37   
+  38      maxLatency(j) 'Max allowed latency per city (ms)' /
+  39          City1  20
+  40          City2  22 /
+  41   
+  42      demand(j) 'Customer demand (compute units)' /
+  43          City1 1000
+  44          City2 1500 /
+  45   
+  46      capacity(k) 'DC capacity (compute units)' /
+  47          Small   800
+  48          Medium 1800
+  49          Large  3000 /;
+  50   
+  51  Table latency(i, j) 'Latency from site to city (ms)'
+  52            City1  City2
+  53      SiteA  10     25
+  54      SiteB  15     20
+  55      SiteC  22     8
+  56      SiteD  30     12 ;
+  57   
+  58   
+  59  Positive Variable
+  60      x(i, k) 'FRACTION of DC size k built at site i (0 <= x <= 1)'
+  61      y(i, j) 'Fraction of demand from city j served by site i';
+  62   
+  63  Variable
+  64      TotalCost 'Total upfront capital cost of the network';
+  65   
+  66  Equations
+  67      CostFunction            'Objective: Minimize total upfront capital cost'
+  68      DemandSatisfaction(j)   'Ensure all customer demand is met'
+  69      DataCenterCapacity(i)   'A site cannot serve more demand than its (fractional) capacity'
+  70      OneSizePerLocation(i)   'Total fraction built at a site cannot exceed 1'
+  71      GridLimit(i)            'Power usage must not exceed grid capacity'
+  72      WaterLimit(i)           'Water usage must not exceed availability'
+  73      LatencySLA(i,j)         'Ensure service latency is within acceptable limits'
+  74   
+  75  * Add an upper bound constraint for x
+  76      X_UpperBound(i, k)      'Ensure build fraction x is not greater than 1';
+  77   
+  78   
+  79   
+  80  CostFunction.. TotalCost=e=
+  81      sum((i, k), capitalCost(i, k) * x(i, k));
+  82   
+  83  DemandSatisfaction(j)..
+  84      sum(i, y(i, j)) =e= 1;
+  85   
+  86   
+  87  DataCenterCapacity(i)..
+  88      sum(j, y(i, j) * demand(j)) =l= sum(k, capacity(k) * x(i, k));
+  89   
+  90   
+  91  OneSizePerLocation(i)..
+  92      sum(k, x(i, k)) =l= 1;
+  93   
+  94   
+  95  GridLimit(i)..
+  96      sum(k, powerDemand(k) * x(i, k)) =l= gridCapacity(i);
+  97   
+  98  WaterLimit(i)..
+  99      sum(k, waterDemand(k) * x(i, k)) =l= waterAvailability(i);
+ 100   
+ 101   
+ 102  LatencySLA(i,j)$(latency(i,j) > maxLatency(j))..
+ 103      y(i,j) =e= 0;
+ 104   
+ 105   
+ 106  X_UpperBound(i,k)..
+ 107      x(i,k) =l= 1;
+ 108   
+ 109   
+ 110   
+ 111  Model DataCenterLocator /all/;
+ 112   
+ 113   
+ 114  Solve DataCenterLocator using LP minimizing TotalCost;
+ 115   
+ 116   
+ 117  Parameter BuildPlan(i, k) 'Final build plan (fractional or full)';
+ 118   
+ 119  BuildPlan(i, k) = x.l(i, k)$(x.l(i, k) > 0.001);
+ 120   
+ 121  Display BuildPlan, TotalCost.l;
+ 122   
+ 123   
+ 124  Display y.l;
+ 125   
+ 126  execute_unload 'dc_simp.gdx';
+
+
+COMPILATION TIME     =        0.000 SECONDS      3 MB  47.5.0 d6b95593 WEX-WEI
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/22/25 10:36:28 Page 2
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Equation Listing    SOLVE DataCenterLocator Using LP From line 114
+
+
+---- CostFunction  =E=  Objective: Minimize total upfront capital cost
+
+CostFunction..  - 100*x(SiteA,Small) - 200*x(SiteA,Medium) - 350*x(SiteA,Large) - 100*x(SiteB,Small) - 200*x(SiteB,Medium) - 350*x(SiteB,Large) - 120*x(SiteC,Small) - 220*x(SiteC,Medium) - 380*x(SiteC,Large) - 120*x(SiteD,Small) - 220*x(SiteD,Medium) - 380*x(SiteD,Large) + TotalCost =E= 0 ; (LHS = 0)
+     
+
+---- DemandSatisfaction  =E=  Ensure all customer demand is met
+
+DemandSatisfaction(City1)..  y(SiteA,City1) + y(SiteB,City1) + y(SiteC,City1) + y(SiteD,City1) =E= 1 ; (LHS = 0, INFES = 1 ****)
+     
+DemandSatisfaction(City2)..  y(SiteA,City2) + y(SiteB,City2) + y(SiteC,City2) + y(SiteD,City2) =E= 1 ; (LHS = 0, INFES = 1 ****)
+     
+
+---- DataCenterCapacity  =L=  A site cannot serve more demand than its (fractional) capacity
+
+DataCenterCapacity(SiteA)..  - 800*x(SiteA,Small) - 1800*x(SiteA,Medium) - 3000*x(SiteA,Large) + 1000*y(SiteA,City1) + 1500*y(SiteA,City2) =L= 0 ; (LHS = 0)
+     
+DataCenterCapacity(SiteB)..  - 800*x(SiteB,Small) - 1800*x(SiteB,Medium) - 3000*x(SiteB,Large) + 1000*y(SiteB,City1) + 1500*y(SiteB,City2) =L= 0 ; (LHS = 0)
+     
+DataCenterCapacity(SiteC)..  - 800*x(SiteC,Small) - 1800*x(SiteC,Medium) - 3000*x(SiteC,Large) + 1000*y(SiteC,City1) + 1500*y(SiteC,City2) =L= 0 ; (LHS = 0)
+     
+REMAINING ENTRY SKIPPED
+
+
+---- OneSizePerLocation  =L=  Total fraction built at a site cannot exceed 1
+
+OneSizePerLocation(SiteA)..  x(SiteA,Small) + x(SiteA,Medium) + x(SiteA,Large) =L= 1 ; (LHS = 0)
+     
+OneSizePerLocation(SiteB)..  x(SiteB,Small) + x(SiteB,Medium) + x(SiteB,Large) =L= 1 ; (LHS = 0)
+     
+OneSizePerLocation(SiteC)..  x(SiteC,Small) + x(SiteC,Medium) + x(SiteC,Large) =L= 1 ; (LHS = 0)
+     
+REMAINING ENTRY SKIPPED
+
+
+---- GridLimit  =L=  Power usage must not exceed grid capacity
+
+GridLimit(SiteA)..  20*x(SiteA,Small) + 45*x(SiteA,Medium) + 80*x(SiteA,Large) =L= 50 ; (LHS = 0)
+     
+GridLimit(SiteB)..  20*x(SiteB,Small) + 45*x(SiteB,Medium) + 80*x(SiteB,Large) =L= 100 ; (LHS = 0)
+     
+GridLimit(SiteC)..  20*x(SiteC,Small) + 45*x(SiteC,Medium) + 80*x(SiteC,Large) =L= 150 ; (LHS = 0)
+     
+REMAINING ENTRY SKIPPED
+
+
+---- WaterLimit  =L=  Water usage must not exceed availability
+
+WaterLimit(SiteA)..  50*x(SiteA,Small) + 120*x(SiteA,Medium) + 250*x(SiteA,Large) =L= 150 ; (LHS = 0)
+     
+WaterLimit(SiteB)..  50*x(SiteB,Small) + 120*x(SiteB,Medium) + 250*x(SiteB,Large) =L= 300 ; (LHS = 0)
+     
+WaterLimit(SiteC)..  50*x(SiteC,Small) + 120*x(SiteC,Medium) + 250*x(SiteC,Large) =L= 500 ; (LHS = 0)
+     
+REMAINING ENTRY SKIPPED
+
+
+---- LatencySLA  =E=  Ensure service latency is within acceptable limits
+
+LatencySLA(SiteA,City2)..  y(SiteA,City2) =E= 0 ; (LHS = 0)
+     
+LatencySLA(SiteC,City1)..  y(SiteC,City1) =E= 0 ; (LHS = 0)
+     
+LatencySLA(SiteD,City1)..  y(SiteD,City1) =E= 0 ; (LHS = 0)
+     
+
+---- X_UpperBound  =L=  Ensure build fraction x is not greater than 1
+
+X_UpperBound(SiteA,Small)..  x(SiteA,Small) =L= 1 ; (LHS = 0)
+     
+X_UpperBound(SiteA,Medium)..  x(SiteA,Medium) =L= 1 ; (LHS = 0)
+     
+X_UpperBound(SiteA,Large)..  x(SiteA,Large) =L= 1 ; (LHS = 0)
+     
+REMAINING 9 ENTRIES SKIPPED
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/22/25 10:36:28 Page 3
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Column Listing      SOLVE DataCenterLocator Using LP From line 114
+
+
+---- x  FRACTION of DC size k built at site i (0 <= x <= 1)
+
+x(SiteA,Small)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+     -100       CostFunction
+     -800       DataCenterCapacity(SiteA)
+        1       OneSizePerLocation(SiteA)
+       20       GridLimit(SiteA)
+       50       WaterLimit(SiteA)
+        1       X_UpperBound(SiteA,Small)
+
+x(SiteA,Medium)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+     -200       CostFunction
+    -1800       DataCenterCapacity(SiteA)
+        1       OneSizePerLocation(SiteA)
+       45       GridLimit(SiteA)
+      120       WaterLimit(SiteA)
+        1       X_UpperBound(SiteA,Medium)
+
+x(SiteA,Large)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+     -350       CostFunction
+    -3000       DataCenterCapacity(SiteA)
+        1       OneSizePerLocation(SiteA)
+       80       GridLimit(SiteA)
+      250       WaterLimit(SiteA)
+        1       X_UpperBound(SiteA,Large)
+
+REMAINING 9 ENTRIES SKIPPED
+
+---- y  Fraction of demand from city j served by site i
+
+y(SiteA,City1)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+        1       DemandSatisfaction(City1)
+     1000       DataCenterCapacity(SiteA)
+
+y(SiteA,City2)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+        1       DemandSatisfaction(City2)
+     1500       DataCenterCapacity(SiteA)
+        1       LatencySLA(SiteA,City2)
+
+y(SiteB,City1)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+        1       DemandSatisfaction(City1)
+     1000       DataCenterCapacity(SiteB)
+
+REMAINING 5 ENTRIES SKIPPED
+
+---- TotalCost  Total upfront capital cost of the network
+
+TotalCost
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       CostFunction
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/22/25 10:36:28 Page 4
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Range Statistics    SOLVE DataCenterLocator Using LP From line 114
+
+
+RANGE STATISTICS (ABSOLUTE NON-ZERO FINITE VALUES)
+
+RHS       [min, max] : [ 1.000E+00, 5.000E+02] - Zero values observed as well
+Bound     [min, max] : [        NA,        NA] - Zero values observed as well
+Matrix    [min, max] : [ 1.000E+00, 3.000E+03]
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/22/25 10:36:28 Page 5
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Statistics    SOLVE DataCenterLocator Using LP From line 114
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS           8     SINGLE EQUATIONS           34
+BLOCKS OF VARIABLES           3     SINGLE VARIABLES           21
+NON ZERO ELEMENTS            92
+
+
+GENERATION TIME      =        0.015 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/22/25 10:36:28 Page 6
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Solution Report     SOLVE DataCenterLocator Using LP From line 114
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   DataCenterLocator   OBJECTIVE  TotalCost
+     TYPE    LP                  DIRECTION  MINIMIZE
+     SOLVER  CPLEX               FROM LINE  114
+
+**** SOLVER STATUS     1 Normal Completion
+**** MODEL STATUS      1 Optimal
+**** OBJECTIVE VALUE              277.7778
+
+ RESOURCE USAGE, LIMIT          0.016 10000000000.000
+ ITERATION COUNT, LIMIT         5    2147483647
+--- GAMS/CPLEX licensed for continuous and discrete problems.
+--- GMO setup time: 0.00s
+--- GMO memory 0.50 Mb (peak 0.50 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 22.1.1.0 link memory 0.00 Mb (peak 0.00 Mb)
+--- Starting Cplex
+
+
+--- LP status (1): optimal.
+--- Cplex Time: 0.02sec (det. 0.06 ticks)
+
+
+Optimal solution found
+Objective:          277.777778
+
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- EQU CostFunct~          .              .              .             1.0000      
+
+  CostFunction  Objective: Minimize total upfront capital cost
+
+---- EQU DemandSatisfaction  Ensure all customer demand is met
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+City1         1.0000         1.0000         1.0000       111.1111      
+City2         1.0000         1.0000         1.0000       166.6667      
+
+---- EQU DataCenterCapacity  A site cannot serve more demand than its (fractional) capacity
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA        -INF             .              .            -0.1111      
+SiteB        -INF             .              .            -0.1111      
+SiteC        -INF             .              .            -0.1111      
+SiteD        -INF             .              .            -0.1111      
+
+---- EQU OneSizePerLocation  Total fraction built at a site cannot exceed 1
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA        -INF            0.5556         1.0000          .          
+SiteB        -INF            0.8333         1.0000          .          
+SiteC        -INF             .             1.0000          .          
+SiteD        -INF             .             1.0000          .          
+
+---- EQU GridLimit  Power usage must not exceed grid capacity
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA        -INF           25.0000        50.0000          .          
+SiteB        -INF           37.5000       100.0000          .          
+SiteC        -INF             .           150.0000          .          
+SiteD        -INF             .            80.0000          .          
+
+---- EQU WaterLimit  Water usage must not exceed availability
+
+             LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA        -INF           66.6667       150.0000          .          
+SiteB        -INF          100.0000       300.0000          .          
+SiteC        -INF             .           500.0000          .          
+SiteD        -INF             .           200.0000          .          
+
+---- EQU LatencySLA  Ensure service latency is within acceptable limits
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA.City2          .              .              .              .          
+SiteC.City1          .              .              .              .          
+SiteD.City1          .              .              .              .          
+
+---- EQU X_UpperBound  Ensure build fraction x is not greater than 1
+
+                    LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA.Small         -INF             .             1.0000          .          
+SiteA.Medium        -INF            0.5556         1.0000          .          
+SiteA.Large         -INF             .             1.0000          .          
+SiteB.Small         -INF             .             1.0000          .          
+SiteB.Medium        -INF            0.8333         1.0000          .          
+SiteB.Large         -INF             .             1.0000          .          
+SiteC.Small         -INF             .             1.0000          .          
+SiteC.Medium        -INF             .             1.0000          .          
+SiteC.Large         -INF             .             1.0000          .          
+SiteD.Small         -INF             .             1.0000          .          
+SiteD.Medium        -INF             .             1.0000          .          
+SiteD.Large         -INF             .             1.0000          .          
+
+---- VAR x  FRACTION of DC size k built at site i (0 <= x <= 1)
+
+                    LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA.Small           .              .            +INF           11.1111      
+SiteA.Medium          .             0.5556        +INF             .          
+SiteA.Large           .              .            +INF           16.6667      
+SiteB.Small           .              .            +INF           11.1111      
+SiteB.Medium          .             0.8333        +INF             .          
+SiteB.Large           .              .            +INF           16.6667      
+SiteC.Small           .              .            +INF           31.1111      
+SiteC.Medium          .              .            +INF           20.0000      
+SiteC.Large           .              .            +INF           46.6667      
+SiteD.Small           .              .            +INF           31.1111      
+SiteD.Medium          .              .            +INF           20.0000      
+SiteD.Large           .              .            +INF           46.6667      
+
+---- VAR y  Fraction of demand from city j served by site i
+
+                   LOWER          LEVEL          UPPER         MARGINAL
+
+SiteA.City1          .             1.0000        +INF             .          
+SiteA.City2          .              .            +INF      -2.84217E-14      
+SiteB.City1          .              .            +INF      -1.42109E-14      
+SiteB.City2          .             1.0000        +INF             .          
+SiteC.City1          .              .            +INF            EPS         
+SiteC.City2          .              .            +INF             .          
+SiteD.City1          .              .            +INF            EPS         
+SiteD.City2          .              .            +INF             .          
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR TotalCost         -INF          277.7778        +INF             .          
+
+  TotalCost  Total upfront capital cost of the network
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 10/22/25 10:36:28 Page 7
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----    121 PARAMETER BuildPlan  Final build plan (fractional or full)
+
+           Medium
+
+SiteA       0.556
+SiteB       0.833
+
+
+----    121 VARIABLE TotalCost.L           =      277.778  Total upfront capital cost of the network
+
+----    124 VARIABLE y.L  Fraction of demand from city j served by site i
+
+            City1       City2
+
+SiteA       1.000
+SiteB                   1.000
+
+
+
+EXECUTION TIME       =        0.109 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+
+
+USER: Computational Economics EBGN 645               G250827|0002AO-GEN
+      Colorado School of Mines, Operations Research Department  DCE4628
+      License for teaching and research at degree granting institutions
+
+
+**** FILE SUMMARY
+
+Input      C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\Yoeono_EBGN645\Yoeono_EBGN645\Project\V1_DC_simp.gms
+Output     C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\Yoeono_EBGN645\Yoeono_EBGN645\Project\V1_DC_simp.lst
