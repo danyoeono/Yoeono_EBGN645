@@ -1,0 +1,357 @@
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 21:26:35 Page 1
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+C o m p i l a t i o n
+
+
+   1  * Texas Data Center Optimization Model - Linear Version (LP)
+   2  * This model optimizes capacity continuously rather than in discrete steps.
+   3  * --- VERSION: NO CAPITAL COSTS ---
+   4   
+   5  * ==========================================
+   6  * 1. SETS AND INDICES
+   7  * ==========================================
+   8  Sets
+   9      i   'Potential Data Center Locations' / Dallas, Houston, Austin, SanAntonio /
+  10      j   'Demand Regions'                  / Dal_Reg, Hou_Reg, Aus_Reg, SA_Reg, ElPaso, Lubbock, CC /;
+  11   
+  12  * ==========================================
+  13  * 2. PARAMETERS AND DATA
+  14  * ==========================================
+  15  Parameters
+  16      demand(j) 'Required compute units per region'
+  17      / Dal_Reg 800, Hou_Reg 1000, Aus_Reg 600, SA_Reg 600, ElPaso 300, Lubbock 200, CC 300 /
+  18   
+  19      elecRate(i) 'Variable electricity rate ($ per MW)'
+  20      / Dallas 50, Houston 55, Austin 48, SanAntonio 52 /
+  21   
+  22      latencyPenalty 'Cost per mile per unit shipped' / 0.05 /;
+  23   
+  24  * Linearized Costs
+  25  * Note: Capital Cost has been removed from this version.
+  26   
+  27  * Large Power (50MW) / Large Cap (1500) = ~0.0333
+  28  Scalar unitPower 'MW required per unit of compute capacity' / 0.0333 /;
+  29   
+  30  Table distance(i, j) 'Distance matrix (miles)'
+  31                     Dal_Reg  Hou_Reg  Aus_Reg  SA_Reg  ElPaso  Lubbock  CC
+  32      Dallas           10      240      195      275     635     345    410
+  33      Houston         240       10      165      197     745     520    210
+  34      Austin          195      165       10       80     575     375    220
+  35      SanAntonio      275      197       80       10     550     410    145;
+  36   
+  37  * ==========================================
+  38  * 3. VARIABLES
+  39  * ==========================================
+  40  Positive Variables
+  41      capacityBuilt(i) 'Exact size of DC built at location i (Continuous)'
+  42      flow(i, j)       'Amount of compute units shipped from i to j';
+  43   
+  44  Variable
+  45      z                'Total Cost (Objective Function)';
+  46   
+  47  * ==========================================
+  48  * 4. EQUATIONS
+  49  * ==========================================
+  50  Equations
+  51      ObjFunction      'Minimize Total Linear Cost'
+  52      DemandSat(j)     'Demand satisfaction constraint'
+  53      CapacityCon(i)   'Production cannot exceed built capacity';
+  54   
+  55  * ==========================================
+  56  * 5. EQUATION DEFINITIONS
+  57  * ==========================================
+  58   
+  59  * Objective:
+  60  * 1. Linear Power Cost (ElecRate * UnitPower * Size)
+  61  * 2. Latency Cost (Penalty * Dist * Flow)
+  62  * Note: Capital Cost term removed.
+  63  ObjFunction..
+  64      z =e= sum(i, elecRate(i) * unitPower * capacityBuilt(i))
+  65          + sum((i, j), latencyPenalty * distance(i, j) * flow(i, j));
+  66   
+  67  * 1. Demand Satisfaction: Each region must receive required demand
+  68  DemandSat(j)..
+  69      sum(i, flow(i, j)) =e= demand(j);
+  70   
+  71  * 2. Capacity Constraint: The total flow leaving i must be supported by built capacity
+  72  CapacityCon(i)..
+  73      sum(j, flow(i, j)) =l= capacityBuilt(i);
+  74   
+  75  * ==========================================
+  76  * 6. MODEL AND SOLVE
+  77  * ==========================================
+  78  Model TexasLinear /all/;
+  79   
+  80  * Solved using Linear Programming (LP)
+  81  Solve TexasLinear using LP minimizing z;
+  82   
+  83  * ==========================================
+  84  * 7. DISPLAY RESULTS
+  85  * ==========================================
+  86  Parameter Report_Build(i);
+  87  Report_Build(i) = capacityBuilt.l(i);
+  88   
+  89  Parameter Report_Flow(i, j);
+  90  Report_Flow(i, j) = flow.l(i, j);
+  91   
+  92  Display Report_Build, Report_Flow, z.l;
+  93   
+  94  * Export to GDX for analysis
+  95  execute_unload "texas_linear_results.gdx", Report_Build, Report_Flow, z;
+
+
+COMPILATION TIME     =        0.000 SECONDS      3 MB  47.5.0 d6b95593 WEX-WEI
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 21:26:35 Page 2
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Equation Listing    SOLVE TexasLinear Using LP From line 81
+
+
+---- ObjFunction  =E=  Minimize Total Linear Cost
+
+ObjFunction..  - 1.665*capacityBuilt(Dallas) - 1.8315*capacityBuilt(Houston) - 1.5984*capacityBuilt(Austin) - 1.7316*capacityBuilt(SanAntonio) - 0.5*flow(Dallas,Dal_Reg) - 12*flow(Dallas,Hou_Reg) - 9.75*flow(Dallas,Aus_Reg) - 13.75*flow(Dallas,SA_Reg) - 31.75*flow(Dallas,ElPaso) - 17.25*flow(Dallas,Lubbock) - 20.5*flow(Dallas,CC) - 12*flow(Houston,Dal_Reg) - 0.5*flow(Houston,Hou_Reg) - 8.25*flow(Houston,Aus_Reg) - 9.85*flow(Houston,SA_Reg) - 37.25*flow(Houston,ElPaso) - 26*flow(Houston,Lubbock) - 10.5*flow(Houston,CC) - 9.75*flow(Austin,Dal_Reg) - 8.25*flow(Austin,Hou_Reg) - 0.5*flow(Austin,Aus_Reg) - 4*flow(Austin,SA_Reg) - 28.75*flow(Austin,ElPaso) - 18.75*flow(Austin,Lubbock) - 11*flow(Austin,CC) - 13.75*flow(SanAntonio,Dal_Reg) - 9.85*flow(SanAntonio,Hou_Reg) - 4*flow(SanAntonio,Aus_Reg) - 0.5*flow(SanAntonio,SA_Reg) - 27.5*flow(SanAntonio,ElPaso) - 20.5*flow(SanAntonio,Lubbock) - 7.25*flow(SanAntonio,CC) + z =E= 0 ; (LHS = 0)
+     
+
+---- DemandSat  =E=  Demand satisfaction constraint
+
+DemandSat(Dal_Reg)..  flow(Dallas,Dal_Reg) + flow(Houston,Dal_Reg) + flow(Austin,Dal_Reg) + flow(SanAntonio,Dal_Reg) =E= 800 ; (LHS = 0, INFES = 800 ****)
+     
+DemandSat(Hou_Reg)..  flow(Dallas,Hou_Reg) + flow(Houston,Hou_Reg) + flow(Austin,Hou_Reg) + flow(SanAntonio,Hou_Reg) =E= 1000 ; (LHS = 0, INFES = 1000 ****)
+     
+DemandSat(Aus_Reg)..  flow(Dallas,Aus_Reg) + flow(Houston,Aus_Reg) + flow(Austin,Aus_Reg) + flow(SanAntonio,Aus_Reg) =E= 600 ; (LHS = 0, INFES = 600 ****)
+     
+REMAINING 4 ENTRIES SKIPPED
+
+
+---- CapacityCon  =L=  Production cannot exceed built capacity
+
+CapacityCon(Dallas)..  - capacityBuilt(Dallas) + flow(Dallas,Dal_Reg) + flow(Dallas,Hou_Reg) + flow(Dallas,Aus_Reg) + flow(Dallas,SA_Reg) + flow(Dallas,ElPaso) + flow(Dallas,Lubbock) + flow(Dallas,CC) =L= 0 ; (LHS = 0)
+     
+CapacityCon(Houston)..  - capacityBuilt(Houston) + flow(Houston,Dal_Reg) + flow(Houston,Hou_Reg) + flow(Houston,Aus_Reg) + flow(Houston,SA_Reg) + flow(Houston,ElPaso) + flow(Houston,Lubbock) + flow(Houston,CC) =L= 0 ; (LHS = 0)
+     
+CapacityCon(Austin)..  - capacityBuilt(Austin) + flow(Austin,Dal_Reg) + flow(Austin,Hou_Reg) + flow(Austin,Aus_Reg) + flow(Austin,SA_Reg) + flow(Austin,ElPaso) + flow(Austin,Lubbock) + flow(Austin,CC) =L= 0 ; (LHS = 0)
+     
+REMAINING ENTRY SKIPPED
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 21:26:35 Page 3
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Column Listing      SOLVE TexasLinear Using LP From line 81
+
+
+---- capacityBuilt  Exact size of DC built at location i (Continuous)
+
+capacityBuilt(Dallas)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -1.665   ObjFunction
+       -1       CapacityCon(Dallas)
+
+capacityBuilt(Houston)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -1.8315  ObjFunction
+       -1       CapacityCon(Houston)
+
+capacityBuilt(Austin)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -1.5984  ObjFunction
+       -1       CapacityCon(Austin)
+
+REMAINING ENTRY SKIPPED
+
+---- flow  Amount of compute units shipped from i to j
+
+flow(Dallas,Dal_Reg)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -0.5     ObjFunction
+        1       DemandSat(Dal_Reg)
+        1       CapacityCon(Dallas)
+
+flow(Dallas,Hou_Reg)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+      -12       ObjFunction
+        1       DemandSat(Hou_Reg)
+        1       CapacityCon(Dallas)
+
+flow(Dallas,Aus_Reg)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -9.75    ObjFunction
+        1       DemandSat(Aus_Reg)
+        1       CapacityCon(Dallas)
+
+REMAINING 25 ENTRIES SKIPPED
+
+---- z  Total Cost (Objective Function)
+
+z
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       ObjFunction
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 21:26:35 Page 4
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Range Statistics    SOLVE TexasLinear Using LP From line 81
+
+
+RANGE STATISTICS (ABSOLUTE NON-ZERO FINITE VALUES)
+
+RHS       [min, max] : [ 2.000E+02, 1.000E+03] - Zero values observed as well
+Bound     [min, max] : [        NA,        NA] - Zero values observed as well
+Matrix    [min, max] : [ 5.000E-01, 3.725E+01]
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 21:26:35 Page 5
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Statistics    SOLVE TexasLinear Using LP From line 81
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS           3     SINGLE EQUATIONS           12
+BLOCKS OF VARIABLES           3     SINGLE VARIABLES           33
+NON ZERO ELEMENTS            93
+
+
+GENERATION TIME      =        0.000 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 21:26:35 Page 6
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Solution Report     SOLVE TexasLinear Using LP From line 81
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   TexasLinear         OBJECTIVE  z
+     TYPE    LP                  DIRECTION  MINIMIZE
+     SOLVER  CPLEX               FROM LINE  81
+
+**** SOLVER STATUS     1 Normal Completion
+**** MODEL STATUS      1 Optimal
+**** OBJECTIVE VALUE            21908.4600
+
+ RESOURCE USAGE, LIMIT          0.016 10000000000.000
+ ITERATION COUNT, LIMIT         0    2147483647
+--- GAMS/CPLEX licensed for continuous and discrete problems.
+--- GMO setup time: 0.00s
+--- GMO memory 0.50 Mb (peak 0.50 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 22.1.1.0 link memory 0.00 Mb (peak 0.00 Mb)
+--- Starting Cplex
+
+
+--- LP status (1): optimal.
+--- Cplex Time: 0.02sec (det. 0.02 ticks)
+
+
+Optimal solution found
+Objective:        21908.460000
+
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- EQU ObjFuncti~          .              .              .             1.0000      
+
+  ObjFunction  Minimize Total Linear Cost
+
+---- EQU DemandSat  Demand satisfaction constraint
+
+               LOWER          LEVEL          UPPER         MARGINAL
+
+Dal_Reg       800.0000       800.0000       800.0000         2.1650      
+Hou_Reg      1000.0000      1000.0000      1000.0000         2.3315      
+Aus_Reg       600.0000       600.0000       600.0000         2.0984      
+SA_Reg        600.0000       600.0000       600.0000         2.2316      
+ElPaso        300.0000       300.0000       300.0000        29.2316      
+Lubbock       200.0000       200.0000       200.0000        18.9150      
+CC            300.0000       300.0000       300.0000         8.9816      
+
+---- EQU CapacityCon  Production cannot exceed built capacity
+
+                  LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas            -INF             .              .            -1.6650      
+Houston           -INF             .              .            -1.8315      
+Austin            -INF             .              .            -1.5984      
+SanAntonio        -INF             .              .            -1.7316      
+
+---- VAR capacityBuilt  Exact size of DC built at location i (Continuous)
+
+                  LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas              .          1000.0000        +INF             .          
+Houston             .          1000.0000        +INF             .          
+Austin              .           600.0000        +INF             .          
+SanAntonio          .          1200.0000        +INF             .          
+
+---- VAR flow  Amount of compute units shipped from i to j
+
+                          LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas    .Dal_Reg          .           800.0000        +INF             .          
+Dallas    .Hou_Reg          .              .            +INF           11.3335      
+Dallas    .Aus_Reg          .              .            +INF            9.3166      
+Dallas    .SA_Reg           .              .            +INF           13.1834      
+Dallas    .ElPaso           .              .            +INF            4.1834      
+Dallas    .Lubbock          .           200.0000        +INF             .          
+Dallas    .CC               .              .            +INF           13.1834      
+Houston   .Dal_Reg          .              .            +INF           11.6665      
+Houston   .Hou_Reg          .          1000.0000        +INF             .          
+Houston   .Aus_Reg          .              .            +INF            7.9831      
+Houston   .SA_Reg           .              .            +INF            9.4499      
+Houston   .ElPaso           .              .            +INF            9.8499      
+Houston   .Lubbock          .              .            +INF            8.9165      
+Houston   .CC               .              .            +INF            3.3499      
+Austin    .Dal_Reg          .              .            +INF            9.1834      
+Austin    .Hou_Reg          .              .            +INF            7.5169      
+Austin    .Aus_Reg          .           600.0000        +INF             .          
+Austin    .SA_Reg           .              .            +INF            3.3668      
+Austin    .ElPaso           .              .            +INF            1.1168      
+Austin    .Lubbock          .              .            +INF            1.4334      
+Austin    .CC               .              .            +INF            3.6168      
+SanAntonio.Dal_Reg          .              .            +INF           13.3166      
+SanAntonio.Hou_Reg          .              .            +INF            9.2501      
+SanAntonio.Aus_Reg          .              .            +INF            3.6332      
+SanAntonio.SA_Reg           .           600.0000        +INF             .          
+SanAntonio.ElPaso           .           300.0000        +INF             .          
+SanAntonio.Lubbock          .              .            +INF            3.3166      
+SanAntonio.CC               .           300.0000        +INF             .          
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR z                 -INF        21908.4600        +INF             .          
+
+  z  Total Cost (Objective Function)
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 21:26:35 Page 7
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----     92 PARAMETER Report_Build  
+
+Dallas     1000.000,    Houston    1000.000,    Austin      600.000,    SanAntonio 1200.000
+
+
+----     92 PARAMETER Report_Flow  
+
+               Dal_Reg     Hou_Reg     Aus_Reg      SA_Reg      ElPaso     Lubbock          CC
+
+Dallas         800.000                                                     200.000
+Houston                   1000.000
+Austin                                 600.000
+SanAntonio                                         600.000     300.000                 300.000
+
+
+----     92 VARIABLE z.L                   =    21908.460  Total Cost (Objective Function)
+
+
+EXECUTION TIME       =        0.172 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+
+
+USER: Computational Economics EBGN 645               G250827|0002AO-GEN
+      Colorado School of Mines, Operations Research Department  DCE4628
+      License for teaching and research at degree granting institutions
+
+
+**** FILE SUMMARY
+
+Input      C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\Yoeono_EBGN645\Yoeono_EBGN645\Project\tx_dcs_V2.gms
+Output     C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\Yoeono_EBGN645\Yoeono_EBGN645\Project\tx_dcs_V2.lst
