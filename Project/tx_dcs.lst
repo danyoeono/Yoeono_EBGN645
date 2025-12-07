@@ -1,0 +1,592 @@
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 20:53:39 Page 1
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+C o m p i l a t i o n
+
+
+   1  * Texas Data Center Optimization Model
+   2  * Based on the R code formulation
+   3   
+   4  * ==========================================
+   5  * 1. SETS AND INDICES
+   6  * ==========================================
+   7  Sets
+   8      i   'Potential Data Center Locations' / Dallas, Houston, Austin, SanAntonio /
+   9      j   'Demand Regions'                  / Dal_Reg, Hou_Reg, Aus_Reg, SA_Reg, ElPaso, Lubbock, CC /
+  10      k   'Data Center Sizes'               / Small, Medium, Large /;
+  11   
+  12  * ==========================================
+  13  * 2. PARAMETERS AND DATA
+  14  * ==========================================
+  15  Parameters
+  16      demand(j) 'Required compute units per region'
+  17      / Dal_Reg 800, Hou_Reg 1000, Aus_Reg 600, SA_Reg 600, ElPaso 300, Lubbock 200, CC 300 /
+  18   
+  19      powerDemand(k) 'Electricity capacity required (MW)'
+  20      / Small 10, Medium 25, Large 50 /
+  21   
+  22      capacity(k) 'Max compute units per size'
+  23      / Small 400, Medium 900, Large 1500 /
+  24   
+  25      elecRate(i) 'Variable electricity rate ($ per MW)'
+  26      / Dallas 50, Houston 55, Austin 48, SanAntonio 52 /
+  27   
+  28      latencyPenalty 'Cost per mile per unit shipped' / 0.05 /;
+  29   
+  30  Scalar M 'Big M for linking constraints (Total Demand)';
+  31  M = sum(j, demand(j));
+  32   
+  33  * Fixed Table alignment to prevent "Overlapping row name" error
+  34  Table distance(i, j) 'Distance matrix (miles)'
+  35                     Dal_Reg  Hou_Reg  Aus_Reg  SA_Reg  ElPaso  Lubbock  CC
+  36      Dallas           10      240      195      275     635     345    410
+  37      Houston         240       10      165      197     745     520    210
+  38      Austin          195      165       10       80     575     375    220
+  39      SanAntonio      275      197       80       10     550     410    145;
+  40   
+  41  * ==========================================
+  42  * 3. VARIABLES
+  43  * ==========================================
+  44  Binary Variables
+  45      od(i, k) '1 if DC at location i is built with size k'
+  46      oa(i, j) '1 if DC i ships to region j';
+  47   
+  48  Positive Variable
+  49      flow(i, j) 'Amount of compute units shipped from i to j';
+  50   
+  51  Variable
+  52      z        'Total Cost (Objective Function)';
+  53   
+  54  * ==========================================
+  55  * 4. EQUATIONS
+  56  * ==========================================
+  57  Equations
+  58      ObjFunction      'Minimize Total Cost'
+  59      DemandSat(j)     'Demand satisfaction constraint'
+  60      CapacityCon(i)   'Capacity constraint at each DC'
+  61      OneSizeCon(i)    'At most one size per location'
+  62      LinkFlow(i, j)   'Link flow to route opening (oa)'
+  63      LinkOpen(i, j)   'Link route opening (oa) to DC existence (od)';
+  64   
+  65  * ==========================================
+  66  * 5. EQUATION DEFINITIONS
+  67  * ==========================================
+  68   
+  69  * Objective: Min Sum(Variable Elec) + Sum(Latency Cost)
+  70  ObjFunction..
+  71      z =e= sum((i, k), elecRate(i) * powerDemand(k) * od(i, k))
+  72          + sum((i, j), latencyPenalty * distance(i, j) * flow(i, j));
+  73   
+  74  * 1. Demand Satisfaction: Each region must receive required demand
+  75  DemandSat(j)..
+  76      sum(i, flow(i, j)) =e= demand(j);
+  77   
+  78  * 2. Capacity: Flow out of i cannot exceed capacity of chosen size
+  79  CapacityCon(i)..
+  80      sum(j, flow(i, j)) =l= sum(k, capacity(k) * od(i, k));
+  81   
+  82  * 3. One Size Per Location: Can't build Small AND Large at same site
+  83  OneSizeCon(i)..
+  84      sum(k, od(i, k)) =l= 1;
+  85   
+  86  * 4. Link Flow to oa: if flow > 0, then oa must be 1
+  87  LinkFlow(i, j)..
+  88      flow(i, j) =l= M * oa(i, j);
+  89   
+  90  * 5. Link oa to od: Can't ship from i if no DC exists at i
+  91  LinkOpen(i, j)..
+  92      oa(i, j) =l= sum(k, od(i, k));
+  93   
+  94  * ==========================================
+  95  * 6. MODEL AND SOLVE
+  96  * ==========================================
+  97  Model TexasDC /all/;
+  98   
+  99  Solve TexasDC using MIP minimizing z;
+ 100   
+ 101  * ==========================================
+ 102  * 7. DISPLAY RESULTS
+ 103  * ==========================================
+ 104  * Define a parameter to hold a clean report of built locations
+ 105  Parameter Report_Build(i, k);
+ 106  Report_Build(i, k) = od.l(i, k);
+ 107   
+ 108  * Define a parameter to show active flows
+ 109  Parameter Report_Flow(i, j);
+ 110  Report_Flow(i, j) = flow.l(i, j);
+ 111   
+ 112  Display Report_Build, Report_Flow, z.l;
+ 113   
+ 114  * ==========================================
+ 115  * 8. GDX EXPORT
+ 116  * ==========================================
+ 117  * Dump the reporting parameters and objective value to a GDX file
+ 118  execute_unload "texas_results.gdx", Report_Build, Report_Flow, z;
+
+
+COMPILATION TIME     =        0.000 SECONDS      3 MB  47.5.0 d6b95593 WEX-WEI
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 20:53:39 Page 2
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Equation Listing    SOLVE TexasDC Using MIP From line 99
+
+
+---- ObjFunction  =E=  Minimize Total Cost
+
+ObjFunction..  - 500*od(Dallas,Small) - 1250*od(Dallas,Medium) - 2500*od(Dallas,Large) - 550*od(Houston,Small) - 1375*od(Houston,Medium) - 2750*od(Houston,Large) - 480*od(Austin,Small) - 1200*od(Austin,Medium) - 2400*od(Austin,Large) - 520*od(SanAntonio,Small) - 1300*od(SanAntonio,Medium) - 2600*od(SanAntonio,Large) - 0.5*flow(Dallas,Dal_Reg) - 12*flow(Dallas,Hou_Reg) - 9.75*flow(Dallas,Aus_Reg) - 13.75*flow(Dallas,SA_Reg) - 31.75*flow(Dallas,ElPaso) - 17.25*flow(Dallas,Lubbock) - 20.5*flow(Dallas,CC) - 12*flow(Houston,Dal_Reg) - 0.5*flow(Houston,Hou_Reg) - 8.25*flow(Houston,Aus_Reg) - 9.85*flow(Houston,SA_Reg) - 37.25*flow(Houston,ElPaso) - 26*flow(Houston,Lubbock) - 10.5*flow(Houston,CC) - 9.75*flow(Austin,Dal_Reg) - 8.25*flow(Austin,Hou_Reg) - 0.5*flow(Austin,Aus_Reg) - 4*flow(Austin,SA_Reg) - 28.75*flow(Austin,ElPaso) - 18.75*flow(Austin,Lubbock) - 11*flow(Austin,CC) - 13.75*flow(SanAntonio,Dal_Reg) - 9.85*flow(SanAntonio,Hou_Reg) - 4*flow(SanAntonio,Aus_Reg) - 0.5*flow(SanAntonio,SA_Reg) - 27.5*flow(SanAntonio,ElPaso) - 20.5*flow(SanAntonio,Lubbock) - 7.25*flow(SanAntonio,CC) + z =E= 0 ; (LHS = 0)
+     
+
+---- DemandSat  =E=  Demand satisfaction constraint
+
+DemandSat(Dal_Reg)..  flow(Dallas,Dal_Reg) + flow(Houston,Dal_Reg) + flow(Austin,Dal_Reg) + flow(SanAntonio,Dal_Reg) =E= 800 ; (LHS = 0, INFES = 800 ****)
+     
+DemandSat(Hou_Reg)..  flow(Dallas,Hou_Reg) + flow(Houston,Hou_Reg) + flow(Austin,Hou_Reg) + flow(SanAntonio,Hou_Reg) =E= 1000 ; (LHS = 0, INFES = 1000 ****)
+     
+DemandSat(Aus_Reg)..  flow(Dallas,Aus_Reg) + flow(Houston,Aus_Reg) + flow(Austin,Aus_Reg) + flow(SanAntonio,Aus_Reg) =E= 600 ; (LHS = 0, INFES = 600 ****)
+     
+REMAINING 4 ENTRIES SKIPPED
+
+
+---- CapacityCon  =L=  Capacity constraint at each DC
+
+CapacityCon(Dallas)..  - 400*od(Dallas,Small) - 900*od(Dallas,Medium) - 1500*od(Dallas,Large) + flow(Dallas,Dal_Reg) + flow(Dallas,Hou_Reg) + flow(Dallas,Aus_Reg) + flow(Dallas,SA_Reg) + flow(Dallas,ElPaso) + flow(Dallas,Lubbock) + flow(Dallas,CC) =L= 0 ; (LHS = 0)
+     
+CapacityCon(Houston)..  - 400*od(Houston,Small) - 900*od(Houston,Medium) - 1500*od(Houston,Large) + flow(Houston,Dal_Reg) + flow(Houston,Hou_Reg) + flow(Houston,Aus_Reg) + flow(Houston,SA_Reg) + flow(Houston,ElPaso) + flow(Houston,Lubbock) + flow(Houston,CC) =L= 0 ; (LHS = 0)
+     
+CapacityCon(Austin)..  - 400*od(Austin,Small) - 900*od(Austin,Medium) - 1500*od(Austin,Large) + flow(Austin,Dal_Reg) + flow(Austin,Hou_Reg) + flow(Austin,Aus_Reg) + flow(Austin,SA_Reg) + flow(Austin,ElPaso) + flow(Austin,Lubbock) + flow(Austin,CC) =L= 0 ; (LHS = 0)
+     
+REMAINING ENTRY SKIPPED
+
+
+---- OneSizeCon  =L=  At most one size per location
+
+OneSizeCon(Dallas)..  od(Dallas,Small) + od(Dallas,Medium) + od(Dallas,Large) =L= 1 ; (LHS = 0)
+     
+OneSizeCon(Houston)..  od(Houston,Small) + od(Houston,Medium) + od(Houston,Large) =L= 1 ; (LHS = 0)
+     
+OneSizeCon(Austin)..  od(Austin,Small) + od(Austin,Medium) + od(Austin,Large) =L= 1 ; (LHS = 0)
+     
+REMAINING ENTRY SKIPPED
+
+
+---- LinkFlow  =L=  Link flow to route opening (oa)
+
+LinkFlow(Dallas,Dal_Reg)..  - 3800*oa(Dallas,Dal_Reg) + flow(Dallas,Dal_Reg) =L= 0 ; (LHS = 0)
+     
+LinkFlow(Dallas,Hou_Reg)..  - 3800*oa(Dallas,Hou_Reg) + flow(Dallas,Hou_Reg) =L= 0 ; (LHS = 0)
+     
+LinkFlow(Dallas,Aus_Reg)..  - 3800*oa(Dallas,Aus_Reg) + flow(Dallas,Aus_Reg) =L= 0 ; (LHS = 0)
+     
+REMAINING 25 ENTRIES SKIPPED
+
+
+---- LinkOpen  =L=  Link route opening (oa) to DC existence (od)
+
+LinkOpen(Dallas,Dal_Reg)..  - od(Dallas,Small) - od(Dallas,Medium) - od(Dallas,Large) + oa(Dallas,Dal_Reg) =L= 0 ; (LHS = 0)
+     
+LinkOpen(Dallas,Hou_Reg)..  - od(Dallas,Small) - od(Dallas,Medium) - od(Dallas,Large) + oa(Dallas,Hou_Reg) =L= 0 ; (LHS = 0)
+     
+LinkOpen(Dallas,Aus_Reg)..  - od(Dallas,Small) - od(Dallas,Medium) - od(Dallas,Large) + oa(Dallas,Aus_Reg) =L= 0 ; (LHS = 0)
+     
+REMAINING 25 ENTRIES SKIPPED
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 20:53:39 Page 3
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Column Listing      SOLVE TexasDC Using MIP From line 99
+
+
+---- od  1 if DC at location i is built with size k
+
+od(Dallas,Small)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+     -500       ObjFunction
+     -400       CapacityCon(Dallas)
+        1       OneSizeCon(Dallas)
+       -1       LinkOpen(Dallas,Dal_Reg)
+       -1       LinkOpen(Dallas,Hou_Reg)
+       -1       LinkOpen(Dallas,Aus_Reg)
+       -1       LinkOpen(Dallas,SA_Reg)
+       -1       LinkOpen(Dallas,ElPaso)
+       -1       LinkOpen(Dallas,Lubbock)
+       -1       LinkOpen(Dallas,CC)
+
+od(Dallas,Medium)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+    -1250       ObjFunction
+     -900       CapacityCon(Dallas)
+        1       OneSizeCon(Dallas)
+       -1       LinkOpen(Dallas,Dal_Reg)
+       -1       LinkOpen(Dallas,Hou_Reg)
+       -1       LinkOpen(Dallas,Aus_Reg)
+       -1       LinkOpen(Dallas,SA_Reg)
+       -1       LinkOpen(Dallas,ElPaso)
+       -1       LinkOpen(Dallas,Lubbock)
+       -1       LinkOpen(Dallas,CC)
+
+od(Dallas,Large)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+    -2500       ObjFunction
+    -1500       CapacityCon(Dallas)
+        1       OneSizeCon(Dallas)
+       -1       LinkOpen(Dallas,Dal_Reg)
+       -1       LinkOpen(Dallas,Hou_Reg)
+       -1       LinkOpen(Dallas,Aus_Reg)
+       -1       LinkOpen(Dallas,SA_Reg)
+       -1       LinkOpen(Dallas,ElPaso)
+       -1       LinkOpen(Dallas,Lubbock)
+       -1       LinkOpen(Dallas,CC)
+
+REMAINING 9 ENTRIES SKIPPED
+
+---- oa  1 if DC i ships to region j
+
+oa(Dallas,Dal_Reg)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+    -3800       LinkFlow(Dallas,Dal_Reg)
+        1       LinkOpen(Dallas,Dal_Reg)
+
+oa(Dallas,Hou_Reg)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+    -3800       LinkFlow(Dallas,Hou_Reg)
+        1       LinkOpen(Dallas,Hou_Reg)
+
+oa(Dallas,Aus_Reg)
+                (.LO, .L, .UP, .M = 0, 0, 1, 0)
+    -3800       LinkFlow(Dallas,Aus_Reg)
+        1       LinkOpen(Dallas,Aus_Reg)
+
+REMAINING 25 ENTRIES SKIPPED
+
+---- flow  Amount of compute units shipped from i to j
+
+flow(Dallas,Dal_Reg)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -0.5     ObjFunction
+        1       DemandSat(Dal_Reg)
+        1       CapacityCon(Dallas)
+        1       LinkFlow(Dallas,Dal_Reg)
+
+flow(Dallas,Hou_Reg)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+      -12       ObjFunction
+        1       DemandSat(Hou_Reg)
+        1       CapacityCon(Dallas)
+        1       LinkFlow(Dallas,Hou_Reg)
+
+flow(Dallas,Aus_Reg)
+                (.LO, .L, .UP, .M = 0, 0, +INF, 0)
+       -9.75    ObjFunction
+        1       DemandSat(Aus_Reg)
+        1       CapacityCon(Dallas)
+        1       LinkFlow(Dallas,Aus_Reg)
+
+REMAINING 25 ENTRIES SKIPPED
+
+---- z  Total Cost (Objective Function)
+
+z
+                (.LO, .L, .UP, .M = -INF, 0, +INF, 0)
+        1       ObjFunction
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 20:53:39 Page 4
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Range Statistics    SOLVE TexasDC Using MIP From line 99
+
+
+RANGE STATISTICS (ABSOLUTE NON-ZERO FINITE VALUES)
+
+RHS       [min, max] : [ 1.000E+00, 1.000E+03] - Zero values observed as well
+Bound     [min, max] : [ 1.000E+00, 1.000E+00] - Zero values observed as well
+Matrix    [min, max] : [ 5.000E-01, 3.800E+03]
+
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 20:53:39 Page 5
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Model Statistics    SOLVE TexasDC Using MIP From line 99
+
+
+MODEL STATISTICS
+
+BLOCKS OF EQUATIONS           6     SINGLE EQUATIONS           72
+BLOCKS OF VARIABLES           4     SINGLE VARIABLES           69
+NON ZERO ELEMENTS           289     DISCRETE VARIABLES         40
+
+
+GENERATION TIME      =        0.125 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 20:53:39 Page 6
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+Solution Report     SOLVE TexasDC Using MIP From line 99
+
+
+               S O L V E      S U M M A R Y
+
+     MODEL   TexasDC             OBJECTIVE  z
+     TYPE    MIP                 DIRECTION  MINIMIZE
+     SOLVER  CPLEX               FROM LINE  99
+
+**** SOLVER STATUS     1 Normal Completion
+**** MODEL STATUS      1 Optimal
+**** OBJECTIVE VALUE            22600.0000
+
+ RESOURCE USAGE, LIMIT          0.047 10000000000.000
+ ITERATION COUNT, LIMIT        55    2147483647
+--- GAMS/CPLEX licensed for continuous and discrete problems.
+--- GMO setup time: 0.00s
+--- GMO memory 0.52 Mb (peak 0.52 Mb)
+--- Dictionary memory 0.00 Mb
+--- Cplex 22.1.1.0 link memory 0.00 Mb (peak 0.01 Mb)
+--- Starting Cplex
+
+
+--- MIP status (101): integer optimal solution.
+--- Cplex Time: 0.05sec (det. 3.86 ticks)
+
+--- Returning a primal only solution to GAMS (marginals all set to NA).
+--- Fixing integer variables and solving final LP...
+
+
+--- Fixed MIP status (1): optimal.
+--- Cplex Time: 0.00sec (det. 0.08 ticks)
+
+
+Proven optimal solution
+MIP Solution:        22600.000000    (55 iterations, 0 nodes)
+Final Solve:         22600.000000    (3 iterations)
+
+Best possible:       22600.000000
+Absolute gap:            0.000000
+Relative gap:            0.000000
+
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- EQU ObjFuncti~          .              .              .             1.0000      
+
+  ObjFunction  Minimize Total Cost
+
+---- EQU DemandSat  Demand satisfaction constraint
+
+               LOWER          LEVEL          UPPER         MARGINAL
+
+Dal_Reg       800.0000       800.0000       800.0000         4.0000      
+Hou_Reg      1000.0000      1000.0000      1000.0000         0.5000      
+Aus_Reg       600.0000       600.0000       600.0000         2.5000      
+SA_Reg        600.0000       600.0000       600.0000         3.7500      
+ElPaso        300.0000       300.0000       300.0000        30.7500      
+Lubbock       200.0000       200.0000       200.0000        20.7500      
+CC            300.0000       300.0000       300.0000        10.5000      
+
+---- EQU CapacityCon  Capacity constraint at each DC
+
+                  LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas            -INF             .              .            -3.5000      
+Houston           -INF         -400.0000          .              .          
+Austin            -INF             .              .            -2.0000      
+SanAntonio        -INF             .              .            -3.2500      
+
+---- EQU OneSizeCon  At most one size per location
+
+                  LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas            -INF            1.0000         1.0000          .          
+Houston           -INF            1.0000         1.0000          .          
+Austin            -INF            1.0000         1.0000          .          
+SanAntonio        -INF            1.0000         1.0000          .          
+
+---- EQU LinkFlow  Link flow to route opening (oa)
+
+                          LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas    .Dal_Reg        -INF        -3000.0000          .              .          
+Dallas    .Hou_Reg        -INF             .              .              .          
+Dallas    .Aus_Reg        -INF             .              .              .          
+Dallas    .SA_Reg         -INF        -3800.0000          .              .          
+Dallas    .ElPaso         -INF        -3800.0000          .              .          
+Dallas    .Lubbock        -INF        -3700.0000          .              .          
+Dallas    .CC             -INF        -3800.0000          .              .          
+Houston   .Dal_Reg        -INF        -3800.0000          .              .          
+Houston   .Hou_Reg        -INF        -2800.0000          .              .          
+Houston   .Aus_Reg        -INF             .              .              .          
+Houston   .SA_Reg         -INF             .              .              .          
+Houston   .ElPaso         -INF             .              .              .          
+Houston   .Lubbock        -INF        -3800.0000          .              .          
+Houston   .CC             -INF        -3700.0000          .              .          
+Austin    .Dal_Reg        -INF        -3800.0000          .              .          
+Austin    .Hou_Reg        -INF        -3800.0000          .              .          
+Austin    .Aus_Reg        -INF        -3200.0000          .              .          
+Austin    .SA_Reg         -INF        -3800.0000          .              .          
+Austin    .ElPaso         -INF        -3600.0000          .              .          
+Austin    .Lubbock        -INF        -3700.0000          .              .          
+Austin    .CC             -INF        -3800.0000          .              .          
+SanAntonio.Dal_Reg        -INF             .              .              .          
+SanAntonio.Hou_Reg        -INF        -3800.0000          .              .          
+SanAntonio.Aus_Reg        -INF             .              .              .          
+SanAntonio.SA_Reg         -INF        -3200.0000          .              .          
+SanAntonio.ElPaso         -INF        -3700.0000          .              .          
+SanAntonio.Lubbock        -INF        -3800.0000          .              .          
+SanAntonio.CC             -INF        -3600.0000          .              .          
+
+---- EQU LinkOpen  Link route opening (oa) to DC existence (od)
+
+                          LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas    .Dal_Reg        -INF      3.330669E-16          .              .          
+Dallas    .Hou_Reg        -INF           -1.0000          .              .          
+Dallas    .Aus_Reg        -INF           -1.0000          .              .          
+Dallas    .SA_Reg         -INF      3.330669E-16          .              .          
+Dallas    .ElPaso         -INF      3.330669E-16          .              .          
+Dallas    .Lubbock        -INF      -2.77556E-15          .              .          
+Dallas    .CC             -INF      3.330669E-16          .              .          
+Houston   .Dal_Reg        -INF             .              .              .          
+Houston   .Hou_Reg        -INF             .              .              .          
+Houston   .Aus_Reg        -INF           -1.0000          .              .          
+Houston   .SA_Reg         -INF           -1.0000          .              .          
+Houston   .ElPaso         -INF           -1.0000          .              .          
+Houston   .Lubbock        -INF             .              .              .          
+Houston   .CC             -INF             .              .              .          
+Austin    .Dal_Reg        -INF             .              .              .          
+Austin    .Hou_Reg        -INF             .              .              .          
+Austin    .Aus_Reg        -INF             .              .              .          
+Austin    .SA_Reg         -INF             .              .              .          
+Austin    .ElPaso         -INF             .              .              .          
+Austin    .Lubbock        -INF             .              .              .          
+Austin    .CC             -INF             .              .              .          
+SanAntonio.Dal_Reg        -INF           -1.0000          .              .          
+SanAntonio.Hou_Reg        -INF             .              .              .          
+SanAntonio.Aus_Reg        -INF           -1.0000          .              .          
+SanAntonio.SA_Reg         -INF             .              .              .          
+SanAntonio.ElPaso         -INF             .              .              .          
+SanAntonio.Lubbock        -INF             .              .              .          
+SanAntonio.CC             -INF             .              .              .          
+
+---- VAR od  1 if DC at location i is built with size k
+
+                         LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas    .Small           .              .             1.0000      -900.0000      
+Dallas    .Medium          .             1.0000         1.0000     -1900.0000      
+Dallas    .Large           .              .             1.0000     -2750.0000      
+Houston   .Small           .              .             1.0000       550.0000      
+Houston   .Medium          .              .             1.0000      1375.0000      
+Houston   .Large           .             1.0000         1.0000      2750.0000      
+Austin    .Small           .              .             1.0000      -320.0000      
+Austin    .Medium          .             1.0000         1.0000      -600.0000      
+Austin    .Large           .              .             1.0000      -600.0000      
+SanAntonio.Small           .              .             1.0000      -780.0000      
+SanAntonio.Medium          .             1.0000         1.0000     -1625.0000      
+SanAntonio.Large           .              .             1.0000     -2275.0000      
+
+---- VAR oa  1 if DC i ships to region j
+
+                          LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas    .Dal_Reg          .             1.0000         1.0000         EPS         
+Dallas    .Hou_Reg          .              .             1.0000         EPS         
+Dallas    .Aus_Reg          .              .             1.0000         EPS         
+Dallas    .SA_Reg           .             1.0000         1.0000         EPS         
+Dallas    .ElPaso           .             1.0000         1.0000         EPS         
+Dallas    .Lubbock          .             1.0000         1.0000         EPS         
+Dallas    .CC               .             1.0000         1.0000         EPS         
+Houston   .Dal_Reg          .             1.0000         1.0000         EPS         
+Houston   .Hou_Reg          .             1.0000         1.0000         EPS         
+Houston   .Aus_Reg          .              .             1.0000         EPS         
+Houston   .SA_Reg           .              .             1.0000         EPS         
+Houston   .ElPaso           .              .             1.0000         EPS         
+Houston   .Lubbock          .             1.0000         1.0000         EPS         
+Houston   .CC               .             1.0000         1.0000         EPS         
+Austin    .Dal_Reg          .             1.0000         1.0000         EPS         
+Austin    .Hou_Reg          .             1.0000         1.0000         EPS         
+Austin    .Aus_Reg          .             1.0000         1.0000         EPS         
+Austin    .SA_Reg           .             1.0000         1.0000         EPS         
+Austin    .ElPaso           .             1.0000         1.0000         EPS         
+Austin    .Lubbock          .             1.0000         1.0000         EPS         
+Austin    .CC               .             1.0000         1.0000         EPS         
+SanAntonio.Dal_Reg          .              .             1.0000         EPS         
+SanAntonio.Hou_Reg          .             1.0000         1.0000         EPS         
+SanAntonio.Aus_Reg          .              .             1.0000         EPS         
+SanAntonio.SA_Reg           .             1.0000         1.0000         EPS         
+SanAntonio.ElPaso           .             1.0000         1.0000         EPS         
+SanAntonio.Lubbock          .             1.0000         1.0000         EPS         
+SanAntonio.CC               .             1.0000         1.0000         EPS         
+
+---- VAR flow  Amount of compute units shipped from i to j
+
+                          LOWER          LEVEL          UPPER         MARGINAL
+
+Dallas    .Dal_Reg          .           800.0000        +INF             .          
+Dallas    .Hou_Reg          .              .            +INF           15.0000      
+Dallas    .Aus_Reg          .              .            +INF           10.7500      
+Dallas    .SA_Reg           .              .            +INF           13.5000      
+Dallas    .ElPaso           .              .            +INF            4.5000      
+Dallas    .Lubbock          .           100.0000        +INF             .          
+Dallas    .CC               .              .            +INF           13.5000      
+Houston   .Dal_Reg          .              .            +INF            8.0000      
+Houston   .Hou_Reg          .          1000.0000        +INF             .          
+Houston   .Aus_Reg          .              .            +INF            5.7500      
+Houston   .SA_Reg           .              .            +INF            6.1000      
+Houston   .ElPaso           .              .            +INF            6.5000      
+Houston   .Lubbock          .              .            +INF            5.2500      
+Houston   .CC               .           100.0000        +INF             .          
+Austin    .Dal_Reg          .              .            +INF            7.7500      
+Austin    .Hou_Reg          .              .            +INF            9.7500      
+Austin    .Aus_Reg          .           600.0000        +INF             .          
+Austin    .SA_Reg           .              .            +INF            2.2500      
+Austin    .ElPaso           .           200.0000        +INF             .          
+Austin    .Lubbock          .           100.0000        +INF             .          
+Austin    .CC               .              .            +INF            2.5000      
+SanAntonio.Dal_Reg          .              .            +INF           13.0000      
+SanAntonio.Hou_Reg          .              .            +INF           12.6000      
+SanAntonio.Aus_Reg          .              .            +INF            4.7500      
+SanAntonio.SA_Reg           .           600.0000        +INF             .          
+SanAntonio.ElPaso           .           100.0000        +INF             .          
+SanAntonio.Lubbock          .              .            +INF            3.0000      
+SanAntonio.CC               .           200.0000        +INF             .          
+
+                           LOWER          LEVEL          UPPER         MARGINAL
+
+---- VAR z                 -INF        22600.0000        +INF             .          
+
+  z  Total Cost (Objective Function)
+
+
+**** REPORT SUMMARY :        0     NONOPT
+                             0 INFEASIBLE
+                             0  UNBOUNDED
+GAMS 47.5.0  d6b95593 Aug 29, 2024          WEX-WEI x86 64bit/MS Windows - 12/06/25 20:53:39 Page 7
+G e n e r a l   A l g e b r a i c   M o d e l i n g   S y s t e m
+E x e c u t i o n
+
+
+----    112 PARAMETER Report_Build  
+
+                Medium       Large
+
+Dallas           1.000
+Houston                      1.000
+Austin           1.000
+SanAntonio       1.000
+
+
+----    112 PARAMETER Report_Flow  
+
+               Dal_Reg     Hou_Reg     Aus_Reg      SA_Reg      ElPaso     Lubbock          CC
+
+Dallas         800.000                                                     100.000
+Houston                   1000.000                                                     100.000
+Austin                                 600.000                 200.000     100.000
+SanAntonio                                         600.000     100.000                 200.000
+
+
+----    112 VARIABLE z.L                   =    22600.000  Total Cost (Objective Function)
+
+
+EXECUTION TIME       =        0.422 SECONDS      4 MB  47.5.0 d6b95593 WEX-WEI
+
+
+USER: Computational Economics EBGN 645               G250827|0002AO-GEN
+      Colorado School of Mines, Operations Research Department  DCE4628
+      License for teaching and research at degree granting institutions
+
+
+**** FILE SUMMARY
+
+Input      C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\EBGN645_Fall25 - Personal\tx_dcs.gms
+Output     C:\Users\bigdy\OneDrive - Colorado School of Mines\Class\EBGN645 Comp Econ\EBGN645_Fall25 - Personal\tx_dcs.lst
